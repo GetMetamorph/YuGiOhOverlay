@@ -58,10 +58,27 @@
             </Grid>
 
             <!-- Deck selection -->
-            <DockPanel Grid.Row="1" Margin="0,12,0,0">
-                <TextBlock Text="Deck:" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <ComboBox x:Name="DeckCombo" Width="280" SelectionChanged="DeckCombo_OnSelectionChanged"/>
-            </DockPanel>
+            <Grid Grid.Row="1" Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="Deck:" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox Grid.Column="1" x:Name="DeckCombo" Width="280" SelectionChanged="DeckCombo_OnSelectionChanged"/>
+
+                <CheckBox Grid.Column="3"
+              x:Name="StartersOnlyCheckBox"
+              Content="Starters only"
+              Foreground="White"
+              VerticalAlignment="Center"
+              Checked="StartersOnlyCheckBox_OnChanged"
+              Unchecked="StartersOnlyCheckBox_OnChanged"/>
+            </Grid>
+
 
             <!-- Main -->
             <Grid Grid.Row="2" Margin="0,12,0,0">
@@ -74,7 +91,71 @@
                 <Border Grid.Column="0" CornerRadius="10" Background="#AA222222" Padding="8">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="Cartes" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                        <ListBox x:Name="CardsList" SelectionChanged="CardsList_OnSelectionChanged"/>
+                        <ListBox x:Name="CardsList"
+                         SelectionChanged="CardsList_OnSelectionChanged"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Foreground="White">
+
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Nom de la carte -->
+                                        <TextBlock Grid.Column="0"
+                                        Text="{Binding Name}"
+                                        Foreground="White"
+                                        TextTrimming="CharacterEllipsis"
+                                        VerticalAlignment="Center"/> 
+
+                                        <!-- Priorité + Tags -->
+                                        <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal"
+                                        Margin="8,0,0,0"
+                                        VerticalAlignment="Center">
+
+                                            <!-- Priority pill -->
+                                            <Border Background="#AA444444"
+                                            CornerRadius="10"
+                                            Padding="6,2"
+                                            Margin="0,0,6,0">
+                                                <TextBlock Text="{Binding Priority, StringFormat=P:{0}}"
+                                                Foreground="#FFEEEEEE"
+                                                FontSize="11"/>
+                                            </Border>
+
+                                            <!-- Tags pills -->
+                                            <ItemsControl ItemsSource="{Binding Tags}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="#AA333333"
+                                                        CornerRadius="10"
+                                                        Padding="6,2"
+                                                        Margin="4,0,0,0">
+                                                            <TextBlock Text="{Binding}"
+                                                            Foreground="#FFDDDDDD"
+                                                            FontSize="11"/>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
                     </DockPanel>
                 </Border>
 

@@ -8,6 +8,9 @@ using System.Windows.Interop;
 using YuGiOhOverlay.Domain;
 using YuGiOhOverlay.Infrastructure;
 using Forms = System.Windows.Forms;
+using System.Collections.Generic;
+using System.Linq;
+
 
 namespace YuGiOhOverlay.UI;
 
@@ -18,6 +21,9 @@ public partial class OverlayWindow : Window
 
     private readonly ISettingsStore _settingsStore = new JsonSettingsStorePortable();
     private bool _isClickThroughEnabled = true;
+
+    private DeckDefinition? _currentDeck;
+
 
     // Global hotkey: Ctrl + F1
     private const int HotkeyId = 0xBEEF;
@@ -125,25 +131,9 @@ public partial class OverlayWindow : Window
         if (decks.Count > 0)
             DeckCombo.SelectedIndex = 0;
     }
-
-    private void DeckCombo_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void ShowCardSteps(CardPlan? card)
     {
-        if (DeckCombo.SelectedItem is not DeckDefinition deck)
-            return;
-
-        var cards = deck.Cards ?? Array.Empty<CardPlan>();
-
-        CardsList.ItemsSource = cards;
-        CardsList.DisplayMemberPath = nameof(CardPlan.Name);
-
-        StepsText.Text = string.Empty;
-        if (cards.Count > 0)
-            CardsList.SelectedIndex = 0;
-    }
-
-    private void CardsList_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (CardsList.SelectedItem is not CardPlan card)
+        if (card is null)
         {
             StepsText.Text = string.Empty;
             return;
@@ -152,6 +142,91 @@ public partial class OverlayWindow : Window
         var steps = card.Steps ?? Array.Empty<string>();
         StepsText.Text = string.Join(Environment.NewLine + Environment.NewLine, steps);
     }
+
+    private void DeckCombo_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _currentDeck = DeckCombo.SelectedItem as DeckDefinition;
+        RefreshCardsList();
+    }
+
+    private void CardsList_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var item = CardsList.SelectedItem as CardListItem;
+        ShowCardSteps(item?.Source);
+    }
+
+
+    private void StartersOnlyCheckBox_OnChanged(object sender, RoutedEventArgs e)
+    {
+        RefreshCardsList();
+    }
+
+    private void RefreshCardsList()
+    {
+        var deck = _currentDeck;
+        if (deck is null)
+        {
+            CardsList.ItemsSource = null;
+            ShowCardSteps(null);
+            return;
+        }
+
+        var cards = (deck.Cards ?? Array.Empty<CardPlan>()).ToList();
+
+
+        if (StartersOnlyCheckBox.IsChecked == true)
+        {
+            cards = cards
+                .Where(IsStarterCard)
+                .OrderByDescending(c => c.Priority) // meilleur starter en haut
+                .ThenBy(c => c.Name)
+                .ToList();
+        }
+        else
+        {
+            // tri global optionnel (tu peux enlever si tu veux l’ordre “manuel”)
+            cards = cards
+                .OrderByDescending(c => c.Priority)
+                .ThenBy(c => c.Name)
+                .ToList();
+        }
+
+        var items = cards.Select(c => new CardListItem(
+                                            CardId: c.CardId,
+                                            Name: c.Name,
+                                            Priority: c.Priority,
+                                            Tags: (c.Tags ?? Array.Empty<string>()).ToList(),
+                                            Source: c))
+            .ToList();
+
+
+        var previouslySelected = CardsList.SelectedItem as CardListItem;
+        var previousId = previouslySelected?.CardId;
+
+        CardsList.ItemsSource = items;
+
+        CardListItem? newSelected = null;
+
+        if (!string.IsNullOrWhiteSpace(previousId))
+            newSelected = items.FirstOrDefault(i => i.CardId == previousId);
+
+        newSelected ??= items.FirstOrDefault();
+
+        CardsList.SelectedItem = null;
+        CardsList.SelectedItem = newSelected;
+
+        ShowCardSteps(newSelected?.Source);
+    }
+
+
+    private static bool IsStarterCard(CardPlan card)
+    {
+        var tags = card.Tags ?? Array.Empty<string>();
+
+        return tags.Any(t =>
+            string.Equals(t, "starter", StringComparison.OrdinalIgnoreCase));
+    }
+
 
     // ------- Path resolution rules -------
 
