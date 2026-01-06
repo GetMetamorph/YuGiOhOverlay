@@ -28,6 +28,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
@@ -58,6 +59,44 @@
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
+                
+                <!-- Close button -->
+                <Button Grid.Column="2"
+                        x:Name="CloseButton"
+                        Width="34"
+                        Height="34"
+                        Margin="8,0,0,0"
+                        ToolTip="Fermer"
+                        Content="✕"
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Background="#AA222222"
+                        Foreground="White"
+                        BorderBrush="#33000000"
+                        Click="CloseButton_OnClick">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}"
+                                                CornerRadius="6">
+                                            <ContentPresenter
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#CCAA3333"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </Grid>
 
             <!-- Deck selection -->
@@ -74,7 +113,8 @@
                            Text="Deck:"
                            Foreground="White"
                            VerticalAlignment="Center"
-                           Margin="0,0,8,0"/>
+                           Margin="0,0,8,0" 
+                           Name="DeckLabel"/>
 
                 <ComboBox Grid.Column="1"
                           x:Name="DeckCombo"
@@ -104,7 +144,8 @@
                                    Text="Cartes"
                                    Foreground="White"
                                    FontWeight="SemiBold"
-                                   Margin="0,0,0,6"/>
+                                   Margin="0,0,0,6" 
+                                   Name="CartesLabel"/>
 
                         <!-- Cards list with priority + tag pills -->
                         <ListBox x:Name="CardsList"
@@ -177,7 +218,8 @@
                                    Text="Étapes"
                                    Foreground="White"
                                    FontWeight="SemiBold"
-                                   Margin="0,0,0,6"/>
+                                   Margin="0,0,0,6" 
+                                   Name="EtapesLabel"/>
 
                         <TextBox x:Name="StepsText"
                                  IsReadOnly="True"

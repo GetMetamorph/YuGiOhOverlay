@@ -189,22 +189,41 @@ public partial class OverlayWindow : Window
 
         // On garde le style (pas de "disabled white"), mais on empêche les clics
         OpenDataButton.IsHitTestVisible = isInteractive;
-        OpenDataButton.Opacity = isInteractive ? 1.0 : 0.65;
+        OpenDataButton.Opacity = isInteractive ? 1.0 : 0.60;
 
-        // Optionnel : pareil pour le reste si tu veux
+        CloseButton.IsHitTestVisible = isInteractive;
+        CloseButton.Opacity = isInteractive ? 1.0 : 0.60;
+
         DeckCombo.IsHitTestVisible = isInteractive;
-        DeckCombo.Opacity = isInteractive ? 1.0 : 0.65;
+        DeckCombo.Opacity = isInteractive ? 1.0 : 0.60;
 
         StartersOnlyCheckBox.IsHitTestVisible = isInteractive;
-        StartersOnlyCheckBox.Opacity = isInteractive ? 1.0 : 0.65;
+        StartersOnlyCheckBox.Opacity = isInteractive ? 1.0 : 0.60;
 
         CardsList.IsHitTestVisible = isInteractive;
-        CardsList.Opacity = isInteractive ? 1.0 : 0.85;
+        CardsList.Opacity = isInteractive ? 1.0 : 0.60;
 
         StepsText.IsHitTestVisible = isInteractive;
-        StepsText.Opacity = isInteractive ? 1.0 : 0.85;
+        StepsText.Opacity = isInteractive ? 1.0 : 0.60;
+
+        HeaderDragArea.IsHitTestVisible = isInteractive;
+        HeaderDragArea.Opacity = isInteractive ? 1.0 : 0.60;
+
+        CartesLabel.IsHitTestVisible = isInteractive;
+        CartesLabel.Opacity = isInteractive ? 1.0 : 0.60;
+
+        EtapesLabel.IsHitTestVisible = isInteractive;
+        EtapesLabel.Opacity = isInteractive ? 1.0 : 0.60;
+
+        DeckLabel.IsHitTestVisible = isInteractive;
+        DeckLabel.Opacity = isInteractive ? 1.0 : 0.60;
+
     }
 
+    private void CloseButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        System.Windows.Application.Current.Shutdown();
+    }
 
     private void RefreshCardsList()
     {
