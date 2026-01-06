@@ -50,7 +50,10 @@ public partial class OverlayWindow : Window
 
         ApplyClickThrough(_isClickThroughEnabled);
         OpenDataButton.IsEnabled = !_isClickThroughEnabled;
+        ResizeThumb.IsEnabled = !_isClickThroughEnabled;
+
         BringToFront();
+
     }
 
     // ------- Menu / bouton -------
@@ -227,6 +230,40 @@ public partial class OverlayWindow : Window
             string.Equals(t, "starter", StringComparison.OrdinalIgnoreCase));
     }
 
+    // Handlers
+
+    private void Header_OnMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        // Déplacement uniquement en mode interactif
+        if (_isClickThroughEnabled)
+            return;
+
+        // DragMove peut throw si l’état est bizarre (rare) -> on protège
+        try
+        {
+            DragMove();
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private void ResizeThumb_OnDragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+    {
+        if (_isClickThroughEnabled)
+            return;
+
+        const double minWidth = 380;
+        const double minHeight = 260;
+
+        var newWidth = Width + e.HorizontalChange;
+        var newHeight = Height + e.VerticalChange;
+
+        Width = Math.Max(minWidth, newWidth);
+        Height = Math.Max(minHeight, newHeight);
+    }
+
 
     // ------- Path resolution rules -------
 
@@ -315,6 +352,8 @@ public partial class OverlayWindow : Window
 
         if (!_isClickThroughEnabled)
             BringToFront();
+
+        ResizeThumb.IsEnabled = !_isClickThroughEnabled;
     }
 
     private void ApplyClickThrough(bool enable)
