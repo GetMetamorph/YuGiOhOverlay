@@ -1,15 +1,17 @@
 ﻿using Microsoft.Win32;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
+using System.Windows.Media;
 using YuGiOhOverlay.Domain;
 using YuGiOhOverlay.Infrastructure;
 using Forms = System.Windows.Forms;
-using System.Collections.Generic;
-using System.Linq;
+using WpfPoint = System.Windows.Point;
 
 
 namespace YuGiOhOverlay.UI;
@@ -29,7 +31,25 @@ public partial class OverlayWindow : Window
     private const int HotkeyId = 0xBEEF;
     private const uint ModControl = 0x0002;
     private const uint VkF1 = 0x70;
-    private HwndSource? _hwndSource;
+
+    private HwndSource? _source;
+
+    private const int WM_NCHITTEST = 0x0084;
+
+    private const int HTCLIENT = 1;
+    private const int HTCAPTION = 2;
+    private const int HTLEFT = 10;
+    private const int HTRIGHT = 11;
+    private const int HTTOP = 12;
+    private const int HTTOPLEFT = 13;
+    private const int HTTOPRIGHT = 14;
+    private const int HTBOTTOM = 15;
+    private const int HTBOTTOMLEFT = 16;
+    private const int HTBOTTOMRIGHT = 17;
+
+    // Épaisseur de bord “resize” (en DIP, on convertit avec le DPI)
+    private const double ResizeBorderDip = 8.0;
+
 
     public OverlayWindow()
     {
@@ -49,8 +69,7 @@ public partial class OverlayWindow : Window
         await LoadAndBindAsync(dataPath, CancellationToken.None);
 
         ApplyClickThrough(_isClickThroughEnabled);
-        OpenDataButton.IsEnabled = !_isClickThroughEnabled;
-        ResizeThumb.IsEnabled = !_isClickThroughEnabled;
+        ApplyInteractiveUiState();
 
         BringToFront();
 
@@ -164,6 +183,29 @@ public partial class OverlayWindow : Window
         RefreshCardsList();
     }
 
+    private void ApplyInteractiveUiState()
+    {
+        var isInteractive = !_isClickThroughEnabled;
+
+        // On garde le style (pas de "disabled white"), mais on empêche les clics
+        OpenDataButton.IsHitTestVisible = isInteractive;
+        OpenDataButton.Opacity = isInteractive ? 1.0 : 0.65;
+
+        // Optionnel : pareil pour le reste si tu veux
+        DeckCombo.IsHitTestVisible = isInteractive;
+        DeckCombo.Opacity = isInteractive ? 1.0 : 0.65;
+
+        StartersOnlyCheckBox.IsHitTestVisible = isInteractive;
+        StartersOnlyCheckBox.Opacity = isInteractive ? 1.0 : 0.65;
+
+        CardsList.IsHitTestVisible = isInteractive;
+        CardsList.Opacity = isInteractive ? 1.0 : 0.85;
+
+        StepsText.IsHitTestVisible = isInteractive;
+        StepsText.Opacity = isInteractive ? 1.0 : 0.85;
+    }
+
+
     private void RefreshCardsList()
     {
         var deck = _currentDeck;
@@ -232,23 +274,6 @@ public partial class OverlayWindow : Window
 
     // Handlers
 
-    private void Header_OnMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        // Déplacement uniquement en mode interactif
-        if (_isClickThroughEnabled)
-            return;
-
-        // DragMove peut throw si l’état est bizarre (rare) -> on protège
-        try
-        {
-            DragMove();
-        }
-        catch
-        {
-            // ignore
-        }
-    }
-
     private void ResizeThumb_OnDragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
     {
         if (_isClickThroughEnabled)
@@ -311,8 +336,9 @@ public partial class OverlayWindow : Window
     private void OverlayWindow_SourceInitialized(object? sender, EventArgs e)
     {
         var hwnd = new WindowInteropHelper(this).Handle;
-        _hwndSource = HwndSource.FromHwnd(hwnd);
-        _hwndSource.AddHook(WndProc);
+
+        _source = HwndSource.FromHwnd(hwnd);
+        _source.AddHook(WndProc);
 
         RegisterHotKey(hwnd, HotkeyId, ModControl, VkF1);
     }
@@ -322,10 +348,10 @@ public partial class OverlayWindow : Window
         var hwnd = new WindowInteropHelper(this).Handle;
         UnregisterHotKey(hwnd, HotkeyId);
 
-        if (_hwndSource is not null)
+        if (_source is not null)
         {
-            _hwndSource.RemoveHook(WndProc);
-            _hwndSource = null;
+            _source.RemoveHook(WndProc);
+            _source = null;
         }
     }
 
@@ -337,10 +363,166 @@ public partial class OverlayWindow : Window
         {
             ToggleClickThrough();
             handled = true;
+            return IntPtr.Zero;
+        }
+
+        if (msg == WM_NCHITTEST)
+        {
+            // Si click-through ON, on ne capte rien (les clics passent déjà via WS_EX_TRANSPARENT),
+            // mais on laisse Windows tranquille.
+            if (_isClickThroughEnabled)
+                return IntPtr.Zero;
+
+            handled = true;
+            return HitTestNca(hwnd, lParam);
         }
 
         return IntPtr.Zero;
     }
+
+    private IntPtr HitTestNca(IntPtr hwnd, IntPtr lParam)
+    {
+        // lParam contient la position écran du curseur (en pixels)
+        var mouseScreen = GetMouseScreenPoint(lParam);
+
+        // Convert en coordonnées client (pixels)
+        if (!ScreenToClient(hwnd, ref mouseScreen))
+            return new IntPtr(HTCLIENT);
+
+        // Convert en coords WPF (DIP)
+        var mouseDip = ClientPixelsToWpfDip(hwnd, mouseScreen);
+
+        // 1) Ne jamais “capturer” le resize/drag si on survole un contrôle interactif
+        // (ComboBox/ListBox/Button/TextBox etc.)
+        if (IsOverInteractiveElement(mouseDip))
+            return new IntPtr(HTCLIENT);
+
+        // 2) Resize sur bords + coins
+        var borderPx = GetResizeBorderThicknessInPixels(hwnd, ResizeBorderDip);
+
+        // on a mouseScreen en *client pixels*
+        var wDip = ActualWidth > 0 ? ActualWidth : Width;
+        var hDip = ActualHeight > 0 ? ActualHeight : Height;
+
+        var widthPx = (int)Math.Round(wDip * GetDpiScaleX(hwnd));
+        var heightPx = (int)Math.Round(hDip * GetDpiScaleY(hwnd));
+
+
+        var x = mouseScreen.X;
+        var y = mouseScreen.Y;
+
+        var left = x <= borderPx;
+        var right = x >= widthPx - borderPx;
+        var top = y <= borderPx;
+        var bottom = y >= heightPx - borderPx;
+
+        if (top && left) return new IntPtr(HTTOPLEFT);
+        if (top && right) return new IntPtr(HTTOPRIGHT);
+        if (bottom && left) return new IntPtr(HTBOTTOMLEFT);
+        if (bottom && right) return new IntPtr(HTBOTTOMRIGHT);
+
+        if (left) return new IntPtr(HTLEFT);
+        if (right) return new IntPtr(HTRIGHT);
+        if (top) return new IntPtr(HTTOP);
+        if (bottom) return new IntPtr(HTBOTTOM);
+
+        // 3) Drag depuis le header (zone dédiée)
+        if (IsOverHeaderDragArea(mouseDip))
+            return new IntPtr(HTCAPTION);
+
+        return new IntPtr(HTCLIENT);
+    }
+
+    // HELPERS for hit testing
+
+    private static POINT GetMouseScreenPoint(IntPtr lParam)
+    {
+        // LOWORD / HIWORD signés
+        var x = (short)((long)lParam & 0xFFFF);
+        var y = (short)(((long)lParam >> 16) & 0xFFFF);
+        return new POINT { X = x, Y = y };
+    }
+
+    private WpfPoint ClientPixelsToWpfDip(IntPtr hwnd, POINT clientPx)
+    {
+        var source = HwndSource.FromHwnd(hwnd);
+        if (source?.CompositionTarget is null)
+            return new WpfPoint(clientPx.X, clientPx.Y);
+
+        var transform = source.CompositionTarget.TransformFromDevice; // pixels -> DIP
+        return transform.Transform(new WpfPoint(clientPx.X, clientPx.Y));
+    }
+
+
+    private static int GetResizeBorderThicknessInPixels(IntPtr hwnd, double borderDip)
+    {
+        var scaleX = GetDpiScaleX(hwnd); // approx ok
+        return (int)Math.Ceiling(borderDip * scaleX);
+    }
+
+    private static double GetDpiScaleX(IntPtr hwnd)
+    {
+        // WPF provides correct per-monitor scale via the current source
+        var source = HwndSource.FromHwnd(hwnd);
+        if (source?.CompositionTarget is null) return 1.0;
+        return source.CompositionTarget.TransformToDevice.M11;
+    }
+
+    private static double GetDpiScaleY(IntPtr hwnd)
+    {
+        var source = HwndSource.FromHwnd(hwnd);
+        if (source?.CompositionTarget is null) return 1.0;
+        return source.CompositionTarget.TransformToDevice.M22;
+    }
+
+    //.
+
+    private bool IsOverHeaderDragArea(WpfPoint mouseDip)
+    {
+        // On fait un hit-test et on vérifie si l’élément est dans HeaderDragArea
+        var element = InputHitTest(mouseDip) as DependencyObject;
+        if (element is null)
+            return false;
+
+        var header = HeaderDragArea as DependencyObject;
+        if (header is null)
+            return false;
+
+        while (element is not null)
+        {
+            if (ReferenceEquals(element, header))
+                return true;
+
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return false;
+    }
+
+    private bool IsOverInteractiveElement(WpfPoint mouseDip)
+    {
+        var element = InputHitTest(mouseDip) as DependencyObject;
+        if (element is null)
+            return false;
+
+        // On remonte l’arbre visuel : si on tombe sur un contrôle interactif, on ne traite pas en NC
+        while (element is not null)
+        {
+            if (element is System.Windows.Controls.Primitives.ButtonBase) return true;
+            if (element is System.Windows.Controls.Primitives.ToggleButton) return true;
+            if (element is System.Windows.Controls.Primitives.Selector) return true; // ListBox, ComboBox, etc.
+            if (element is System.Windows.Controls.Primitives.TextBoxBase) return true;
+            // TextBox / RichTextBox
+            if (element is System.Windows.Controls.ComboBox) return true;
+            if (element is System.Windows.Controls.Primitives.ScrollBar) return true;
+
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return false;
+    }
+
+
 
     private void ToggleClickThrough()
     {
@@ -348,12 +530,10 @@ public partial class OverlayWindow : Window
         ApplyClickThrough(_isClickThroughEnabled);
 
         // bouton actif seulement en mode interactif
-        OpenDataButton.IsEnabled = !_isClickThroughEnabled;
-
-        if (!_isClickThroughEnabled)
+        ApplyInteractiveUiState();
+        
+            if (!_isClickThroughEnabled)
             BringToFront();
-
-        ResizeThumb.IsEnabled = !_isClickThroughEnabled;
     }
 
     private void ApplyClickThrough(bool enable)
@@ -425,4 +605,14 @@ public partial class OverlayWindow : Window
             await JsonSerializer.SerializeAsync(stream, settings, _options, ct);
         }
     }
+    [DllImport("user32.dll")]
+    private static extern bool ScreenToClient(IntPtr hWnd, ref POINT lpPoint);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
 }
