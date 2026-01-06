@@ -32,7 +32,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="Overlay Deck Helper (texte)" FontSize="16" Foreground="White"/>
+                    <TextBlock Text="Overlay YGO" FontSize="16" Foreground="White"/>
                     <TextBlock Text="Ctrl+F1: Click-through ON/OFF" Margin="0,6,0,0" Foreground="#FFDDDDDD"/>
                 </StackPanel>
 
@@ -48,7 +48,7 @@
                         Foreground="White"
                         FontFamily="Segoe MDL2 Assets"
                         FontSize="16"
-                        Content="&#xE11A;"
+                        Content="&#xE898;"
                         Click="OpenDataButton_OnClick">
                     <Button.ContextMenu>
                         <ContextMenu>
