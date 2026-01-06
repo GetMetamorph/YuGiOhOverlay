@@ -30,12 +30,26 @@ public sealed class JsonDataStore : IDataStore
     public async Task<AppData> LoadAsync(CancellationToken ct)
     {
         if (!File.Exists(_filePath))
-            return new AppData(Version: 1, Decks: Array.Empty<DeckDefinition>());
+            return CreateEmpty();
 
-        await using var stream = File.OpenRead(_filePath);
-        var data = await JsonSerializer.DeserializeAsync<AppData>(stream, _jsonOptions, ct);
+        try
+        {
+            await using var stream = File.OpenRead(_filePath);
+            var data = await JsonSerializer.DeserializeAsync<AppData>(stream, _jsonOptions, ct);
 
-        return data ?? new AppData(Version: 1, Decks: Array.Empty<DeckDefinition>());
+            // IMPORTANT: sanitize null collections
+            return Sanitize(data);
+        }
+        catch (JsonException)
+        {
+            // JSON invalide → on retombe sur une base vide plutôt que crash
+            return CreateEmpty();
+        }
+        catch (IOException)
+        {
+            // fichier verrouillé etc.
+            return CreateEmpty();
+        }
     }
 
     public async Task SaveAsync(AppData data, CancellationToken ct)
@@ -48,5 +62,37 @@ public sealed class JsonDataStore : IDataStore
 
         await using var stream = File.Create(_filePath);
         await JsonSerializer.SerializeAsync(stream, data, _jsonOptions, ct);
+    }
+
+    private static AppData CreateEmpty()
+        => new(Version: 1, Decks: Array.Empty<DeckDefinition>());
+
+    private static AppData Sanitize(AppData? data)
+    {
+        if (data is null)
+            return CreateEmpty();
+
+        var decks = data.Decks ?? Array.Empty<DeckDefinition>();
+
+        // sanitize nested collections too
+        var normalizedDecks = decks
+            .Where(d => d is not null)
+            .Select(d =>
+            {
+                var cards = d.Cards ?? Array.Empty<CardPlan>();
+                var normalizedCards = cards
+                    .Where(c => c is not null)
+                    .Select(c =>
+                    {
+                        var steps = c.Steps ?? Array.Empty<string>();
+                        return c with { Steps = steps };
+                    })
+                    .ToList();
+
+                return d with { Cards = normalizedCards };
+            })
+            .ToList();
+
+        return data with { Decks = normalizedDecks };
     }
 }

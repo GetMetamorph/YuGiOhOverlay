@@ -1,23 +1,25 @@
-﻿using System.IO;
+﻿using Microsoft.Win32;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using YuGiOhOverlay.Domain;
 using YuGiOhOverlay.Infrastructure;
-using Microsoft.Win32;
+using Forms = System.Windows.Forms;
 
 namespace YuGiOhOverlay.UI;
 
 public partial class OverlayWindow : Window
 {
-    private IDataStore _dataStore = null!;
-    private readonly ISettingsStore _settingsStore = new JsonSettingsStore();
     private AppData _data = new(Version: 1, Decks: Array.Empty<DeckDefinition>());
+    private IDataStore _dataStore = null!;
 
+    private readonly ISettingsStore _settingsStore = new JsonSettingsStorePortable();
     private bool _isClickThroughEnabled = true;
 
-    // Global hotkey: Ctrl + F1 (works even when overlay is click-through and not focused)
+    // Global hotkey: Ctrl + F1
     private const int HotkeyId = 0xBEEF;
     private const uint ModControl = 0x0002;
     private const uint VkF1 = 0x70;
@@ -27,13 +29,6 @@ public partial class OverlayWindow : Window
     {
         InitializeComponent();
 
-        var dataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "YuGiOhOverlay",
-            "data.json");
-
-        _dataStore = new JsonDataStore(dataPath);
-
         Loaded += OverlayWindow_Loaded;
         Closed += OverlayWindow_Closed;
         SourceInitialized += OverlayWindow_SourceInitialized;
@@ -41,38 +36,165 @@ public partial class OverlayWindow : Window
 
     private async void OverlayWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        var settings = await _settingsStore.LoadAsync(CancellationToken.None);
+        // Aucun popup au démarrage.
+        // On charge soit le chemin mémorisé, soit data.json à côté de l'exe (créé si absent).
+        var dataPath = await ResolveDataPathWithoutPromptAsync(CancellationToken.None);
 
-        var dataFilePath = settings?.DataFilePath
-                           ?? Path.Combine(AppContext.BaseDirectory, "data.json");
-
-        if (string.IsNullOrWhiteSpace(dataFilePath) || !File.Exists(dataFilePath))
-        {
-            dataFilePath = AskUserForDataFilePath();
-            if (dataFilePath is null)
-            {
-                Close(); // utilisateur a annulé → on quitte proprement
-                return;
-            }
-
-            await _settingsStore.SaveAsync(
-                new AppSettings(dataFilePath),
-                CancellationToken.None);
-        }
-
-        _dataStore = new JsonDataStore(dataFilePath);
-
-        _data = await _dataStore.LoadAsync(CancellationToken.None);
-
-        DeckCombo.ItemsSource = _data.Decks;
-        DeckCombo.DisplayMemberPath = nameof(DeckDefinition.Name);
-
-        if (_data.Decks.Count > 0)
-            DeckCombo.SelectedIndex = 0;
+        await LoadAndBindAsync(dataPath, CancellationToken.None);
 
         ApplyClickThrough(_isClickThroughEnabled);
+        OpenDataButton.IsEnabled = !_isClickThroughEnabled;
         BringToFront();
     }
+
+    // ------- Menu / bouton -------
+
+    private void OpenDataButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_isClickThroughEnabled)
+            return;
+
+        // Ouvre le menu au clic (UX simple)
+        OpenDataButton.ContextMenu.PlacementTarget = OpenDataButton;
+        OpenDataButton.ContextMenu.IsOpen = true;
+    }
+
+    private async void MenuOpenFile_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_isClickThroughEnabled)
+            return;
+
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Choisir un data.json",
+            Filter = "JSON (*.json)|*.json",
+            CheckFileExists = true
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        await PersistDataPathAsync(dialog.FileName, CancellationToken.None);
+        await LoadAndBindAsync(dialog.FileName, CancellationToken.None);
+    }
+
+    private async void MenuChooseFolder_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_isClickThroughEnabled)
+            return;
+
+        using var dialog = new Forms.FolderBrowserDialog
+        {
+            Description = "Choisis un dossier : data.json sera créé dedans si absent.",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true
+        };
+
+        var result = dialog.ShowDialog();
+        if (result != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath))
+            return;
+
+        var dataPath = Path.Combine(dialog.SelectedPath, "data.json");
+
+        EnsureDataFileExists(dataPath);
+
+        await PersistDataPathAsync(dataPath, CancellationToken.None);
+        await LoadAndBindAsync(dataPath, CancellationToken.None);
+    }
+
+    // ------- Data load / bind -------
+
+    private async Task LoadAndBindAsync(string dataPath, CancellationToken ct)
+    {
+        _dataStore = new JsonDataStore(dataPath);
+        _data = await _dataStore.LoadAsync(ct);
+
+        BindDecks(_data);
+    }
+
+    private void BindDecks(AppData data)
+    {
+        var decks = data.Decks ?? Array.Empty<DeckDefinition>();
+
+        DeckCombo.ItemsSource = decks;
+        DeckCombo.DisplayMemberPath = nameof(DeckDefinition.Name);
+
+        StepsText.Text = string.Empty;
+        CardsList.ItemsSource = null;
+
+        if (decks.Count > 0)
+            DeckCombo.SelectedIndex = 0;
+    }
+
+    private void DeckCombo_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DeckCombo.SelectedItem is not DeckDefinition deck)
+            return;
+
+        var cards = deck.Cards ?? Array.Empty<CardPlan>();
+
+        CardsList.ItemsSource = cards;
+        CardsList.DisplayMemberPath = nameof(CardPlan.Name);
+
+        StepsText.Text = string.Empty;
+        if (cards.Count > 0)
+            CardsList.SelectedIndex = 0;
+    }
+
+    private void CardsList_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CardsList.SelectedItem is not CardPlan card)
+        {
+            StepsText.Text = string.Empty;
+            return;
+        }
+
+        var steps = card.Steps ?? Array.Empty<string>();
+        StepsText.Text = string.Join(Environment.NewLine + Environment.NewLine, steps);
+    }
+
+    // ------- Path resolution rules -------
+
+    private async Task<string> ResolveDataPathWithoutPromptAsync(CancellationToken ct)
+    {
+        var settings = await _settingsStore.LoadAsync(ct);
+        var candidate = settings?.DataFilePath;
+
+        if (!string.IsNullOrWhiteSpace(candidate) && File.Exists(candidate))
+            return candidate;
+
+        // Fallback: data.json next to exe (portable). Create if missing.
+        var defaultPath = Path.Combine(AppContext.BaseDirectory, "data.json");
+        EnsureDataFileExists(defaultPath);
+
+        await PersistDataPathAsync(defaultPath, ct);
+        return defaultPath;
+    }
+
+    private async Task PersistDataPathAsync(string path, CancellationToken ct)
+    {
+        await _settingsStore.SaveAsync(new AppSettings(path), ct);
+    }
+
+    private static void EnsureDataFileExists(string dataFilePath)
+    {
+        if (File.Exists(dataFilePath))
+            return;
+
+        var emptyData = new AppData(
+            Version: 1,
+            Decks: new List<DeckDefinition>());
+
+        var json = JsonSerializer.Serialize(emptyData, new JsonSerializerOptions { WriteIndented = true });
+
+        var dir = Path.GetDirectoryName(dataFilePath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        File.WriteAllText(dataFilePath, json);
+    }
+
+    // ---------- Click-through + hotkey ----------
 
     private void OverlayWindow_SourceInitialized(object? sender, EventArgs e)
     {
@@ -80,12 +202,7 @@ public partial class OverlayWindow : Window
         _hwndSource = HwndSource.FromHwnd(hwnd);
         _hwndSource.AddHook(WndProc);
 
-        // Register global hotkey (Ctrl+F1)
-        if (!RegisterHotKey(hwnd, HotkeyId, ModControl, VkF1))
-        {
-            // Not fatal; overlay will still work if focused.
-            // But in click-through mode you won't be able to toggle without the hotkey.
-        }
+        RegisterHotKey(hwnd, HotkeyId, ModControl, VkF1);
     }
 
     private void OverlayWindow_Closed(object? sender, EventArgs e)
@@ -113,67 +230,16 @@ public partial class OverlayWindow : Window
         return IntPtr.Zero;
     }
 
-    private string? AskUserForDataFilePath()
-    {
-        var dialog = new OpenFileDialog
-        {
-            Title = "Sélectionne ton fichier de deck (data.json)",
-            Filter = "JSON (*.json)|*.json",
-            CheckFileExists = false
-        };
-
-        if (dialog.ShowDialog() != true)
-            return null;
-
-        // Si le fichier n'existe pas encore, on le crée vide
-        if (!File.Exists(dialog.FileName))
-        {
-            var emptyData = new AppData(
-                Version: 1,
-                Decks: new List<DeckDefinition>());
-
-            var json = System.Text.Json.JsonSerializer.Serialize(
-                emptyData,
-                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-
-            File.WriteAllText(dialog.FileName, json);
-        }
-
-        return dialog.FileName;
-    }
-
     private void ToggleClickThrough()
     {
         _isClickThroughEnabled = !_isClickThroughEnabled;
         ApplyClickThrough(_isClickThroughEnabled);
 
-        // When becoming interactive, bring to front + focus so clicks go to overlay.
+        // bouton actif seulement en mode interactif
+        OpenDataButton.IsEnabled = !_isClickThroughEnabled;
+
         if (!_isClickThroughEnabled)
             BringToFront();
-    }
-
-    private void DeckCombo_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (DeckCombo.SelectedItem is not DeckDefinition deck)
-            return;
-
-        CardsList.ItemsSource = deck.Cards;
-        CardsList.DisplayMemberPath = nameof(CardPlan.Name);
-
-        StepsText.Text = string.Empty;
-        if (deck.Cards.Count > 0)
-            CardsList.SelectedIndex = 0;
-    }
-
-    private void CardsList_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (CardsList.SelectedItem is not CardPlan card)
-        {
-            StepsText.Text = string.Empty;
-            return;
-        }
-
-        StepsText.Text = string.Join(Environment.NewLine + Environment.NewLine, card.Steps);
     }
 
     private void ApplyClickThrough(bool enable)
@@ -183,24 +249,21 @@ public partial class OverlayWindow : Window
 
         var exStyle = GetWindowLong(hwnd, GwlExstyle);
 
-        // Always keep layered for transparency
         exStyle |= WsExLayered;
 
         if (enable)
-            exStyle |= WsExTransparent;   // click-through
+            exStyle |= WsExTransparent;
         else
-            exStyle &= ~WsExTransparent;  // interactive
+            exStyle &= ~WsExTransparent;
 
         SetWindowLong(hwnd, GwlExstyle, exStyle);
     }
 
     private void BringToFront()
     {
-        // A common WPF trick to reliably bring topmost window to front
         Topmost = true;
         Activate();
         Focus();
-        // Sometimes toggling Topmost helps if another topmost window is around
         Topmost = false;
         Topmost = true;
     }
@@ -220,4 +283,32 @@ public partial class OverlayWindow : Window
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    // ---------- Portable settings store (next to exe) ----------
+
+    private sealed class JsonSettingsStorePortable : ISettingsStore
+    {
+        private readonly string _filePath = Path.Combine(AppContext.BaseDirectory, "settings.json");
+        private readonly JsonSerializerOptions _options = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true
+        };
+
+        public async Task<AppSettings?> LoadAsync(CancellationToken ct)
+        {
+            if (!File.Exists(_filePath))
+                return null;
+
+            await using var stream = File.OpenRead(_filePath);
+            return await JsonSerializer.DeserializeAsync<AppSettings>(stream, _options, ct);
+        }
+
+        public async Task SaveAsync(AppSettings settings, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(settings);
+            await using var stream = File.Create(_filePath);
+            await JsonSerializer.SerializeAsync(stream, settings, _options, ct);
+        }
+    }
 }

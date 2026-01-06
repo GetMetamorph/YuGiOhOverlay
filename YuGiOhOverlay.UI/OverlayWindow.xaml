@@ -19,16 +19,51 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0">
-                <TextBlock Text="Overlay Deck Helper (texte)" FontSize="16" Foreground="White"/>
-                <TextBlock Text="F1: Click-through ON/OFF" Margin="0,6,0,0" Foreground="#FFDDDDDD"/>
-            </StackPanel>
+            <!-- Header -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Overlay Deck Helper (texte)" FontSize="16" Foreground="White"/>
+                    <TextBlock Text="Ctrl+F1: Click-through ON/OFF" Margin="0,6,0,0" Foreground="#FFDDDDDD"/>
+                </StackPanel>
+
+                <!-- Small icon button (only meaningful in interactive mode) -->
+                <Button Grid.Column="1"
+                x:Name="OpenDataButton"
+                Width="34"
+                Height="34"
+                Margin="8,0,0,0"
+                ToolTip="Charger / créer data.json"
+                Background="#AA222222"
+                BorderBrush="#33000000"
+                Foreground="White"
+                FontFamily="Segoe MDL2 Assets"
+                FontSize="16"
+                Content="&#xE11A;"
+                Click="OpenDataButton_OnClick">
+
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Ouvrir un fichier data.json..."
+                      Click="MenuOpenFile_OnClick"/>
+                            <MenuItem Header="Choisir un dossier (créer data.json)"
+                      Click="MenuChooseFolder_OnClick"/>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+            </Grid>
+
+            <!-- Deck selection -->
             <DockPanel Grid.Row="1" Margin="0,12,0,0">
                 <TextBlock Text="Deck:" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <ComboBox x:Name="DeckCombo" Width="280" SelectionChanged="DeckCombo_OnSelectionChanged"/>
             </DockPanel>
 
+            <!-- Main -->
             <Grid Grid.Row="2" Margin="0,12,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="200"/>
