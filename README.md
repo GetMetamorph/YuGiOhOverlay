@@ -77,6 +77,7 @@ dotnet restore YuGiOhOverlay.sln
 dotnet build YuGiOhOverlay.sln -c Release -warnaserror
 dotnet test YuGiOhOverlay.Domain.Tests -c Release
 dotnet test YuGiOhOverlay.Vision.Tests -c Release
+dotnet test YuGiOhOverlay.UI.Tests -c Release
 .\build-release.bat
 ```
 

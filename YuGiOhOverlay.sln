@@ -18,6 +18,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YuGiOhOverlay.Vision.Tests"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YuGiOhOverlay.Windows", "YuGiOhOverlay.Windows\YuGiOhOverlay.Windows.csproj", "{FBD92706-7AE8-5E42-8B1B-311D068AD366}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YuGiOhOverlay.UI.Tests", "YuGiOhOverlay.UI.Tests\YuGiOhOverlay.UI.Tests.csproj", "{4C8A6B83-7532-4B0F-9208-65174AA6231F}"
+EndProject
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution
         Debug|Any CPU = Debug|Any CPU
@@ -56,5 +58,9 @@ Global
         {FBD92706-7AE8-5E42-8B1B-311D068AD366}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {FBD92706-7AE8-5E42-8B1B-311D068AD366}.Release|Any CPU.ActiveCfg = Release|Any CPU
         {FBD92706-7AE8-5E42-8B1B-311D068AD366}.Release|Any CPU.Build.0 = Release|Any CPU
+        {4C8A6B83-7532-4B0F-9208-65174AA6231F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {4C8A6B83-7532-4B0F-9208-65174AA6231F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {4C8A6B83-7532-4B0F-9208-65174AA6231F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {4C8A6B83-7532-4B0F-9208-65174AA6231F}.Release|Any CPU.Build.0 = Release|Any CPU
     EndGlobalSection
 EndGlobal

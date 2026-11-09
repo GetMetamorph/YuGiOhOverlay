@@ -29,7 +29,7 @@
                         </DataTemplate></ItemsControl.ItemTemplate>
                     </ItemsControl>
                     <TextBlock Text="COMBOS COMPATIBLES" FontSize="10" Foreground="{StaticResource Muted}" Margin="0,12,0,5" />
-                    <ListBox ItemsSource="{Binding Recommendations}" SelectedItem="{Binding Selected, Mode=TwoWay}" MaxHeight="110">
+                    <ListBox ItemsSource="{Binding Recommendations}" SelectedItem="{Binding SelectedSuggestion, Mode=TwoWay}" MaxHeight="110">
                         <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Combo.Title}" /></DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
                     <Border Background="#162A32" CornerRadius="10" Padding="16" Margin="0,14,0,0" BorderBrush="#37625E" BorderThickness="1">

@@ -22,6 +22,8 @@ jobs:
         run: dotnet test YuGiOhOverlay.Domain.Tests -c Release --no-build --logger trx
       - name: Native recognition tests (synthetic images, no screen capture)
         run: dotnet test YuGiOhOverlay.Vision.Tests -c Release --no-build --logger trx
+      - name: WPF guide selection regression tests
+        run: dotnet test YuGiOhOverlay.UI.Tests -c Release --no-build --logger trx
       - name: Verify formatting
         run: dotnet format whitespace YuGiOhOverlay.sln --verify-no-changes --no-restore --exclude YuGiOhOverlay.UI/LegacyOverlayWindow.xaml.cs YuGiOhOverlay.UI/AssemblyInfo.cs YuGiOhOverlay.UI/CardListItem.cs YuGiOhOverlay.Infrastructure/JsonDataStore.cs YuGiOhOverlay.Infrastructure/SettingsStore.cs YuGiOhOverlay.Domain/AppSettings.cs YuGiOhOverlay.Domain/DeckModels.cs YuGiOhOverlay.Domain.Tests/UnitTest1.cs
       - name: Publish Windows x64 application

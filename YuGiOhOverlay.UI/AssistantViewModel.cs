@@ -27,7 +27,19 @@ public sealed class AssistantViewModel(Dispatcher dispatcher) : INotifyPropertyC
     public RecommendedAction? Selected
     {
         get => _selected;
-        set { if (_selected?.Combo.Id == value?.Combo.Id) return; _selected = value; _step = 0; Refresh(); }
+        private set { if (_selected?.Combo.Id == value?.Combo.Id) return; _selected = value; _step = 0; Refresh(); }
+    }
+    public RecommendedAction? SelectedSuggestion
+    {
+        get => Recommendations.FirstOrDefault(r => r.Combo.Id == Selected?.Combo.Id);
+        set
+        {
+            // ListBox clears its selection when its items change. That notification
+            // must not discard the active guide, especially after a card leaves the hand.
+            if (value is null || value.Combo.Id == Selected?.Combo.Id) return;
+            _following = false;
+            Selected = value;
+        }
     }
     public string ComboTitle => Selected?.Combo.Title ?? "En attente d’une main compatible";
     public string StepLabel => Selected is null ? "GUIDE DE COMBO" : $"ÉTAPE {_step + 1} / {Selected.Combo.Actions.Count}";
