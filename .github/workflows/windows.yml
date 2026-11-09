@@ -27,7 +27,7 @@ jobs:
       - name: Verify formatting
         run: dotnet format whitespace YuGiOhOverlay.sln --verify-no-changes --no-restore --exclude YuGiOhOverlay.UI/LegacyOverlayWindow.xaml.cs YuGiOhOverlay.UI/AssemblyInfo.cs YuGiOhOverlay.UI/CardListItem.cs YuGiOhOverlay.Infrastructure/JsonDataStore.cs YuGiOhOverlay.Infrastructure/SettingsStore.cs YuGiOhOverlay.Domain/AppSettings.cs YuGiOhOverlay.Domain/DeckModels.cs YuGiOhOverlay.Domain.Tests/UnitTest1.cs
       - name: Publish Windows x64 application
-        run: dotnet publish YuGiOhOverlay.UI -c Release -r win-x64 --no-restore -o artifacts/windows-x64 -p:DebugType=None -p:DebugSymbols=false
+        run: dotnet publish YuGiOhOverlay.UI/YuGiOhOverlay.UI.csproj -c Release -r win-x64 -o artifacts/windows-x64 -p:DebugType=None -p:DebugSymbols=false
       - uses: actions/upload-artifact@v4
         with:
           name: YuGiOhOverlay-windows-x64
