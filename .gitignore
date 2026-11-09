@@ -73,3 +73,5 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+# WPF temporary compilation projects
+*_wpftmp.csproj

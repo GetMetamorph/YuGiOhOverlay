@@ -1,0 +1,60 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YuGiOhOverlay.Application", "YuGiOhOverlay.Application\YuGiOhOverlay.Application.csproj", "{BECF4041-64E8-594B-BFB7-29AD005B06D3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YuGiOhOverlay.Domain", "YuGiOhOverlay.Domain\YuGiOhOverlay.Domain.csproj", "{0FE9C4E1-C60A-5831-92AF-3201DD9BC801}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YuGiOhOverlay.Domain.Tests", "YuGiOhOverlay.Domain.Tests\YuGiOhOverlay.Domain.Tests.csproj", "{423FA435-1108-510F-80C1-B98E96074F25}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YuGiOhOverlay.Infrastructure", "YuGiOhOverlay.Infrastructure\YuGiOhOverlay.Infrastructure.csproj", "{60688259-E4DC-5FC8-9242-EA945CFB4A1C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YuGiOhOverlay.UI", "YuGiOhOverlay.UI\YuGiOhOverlay.UI.csproj", "{5F346C4D-E9FD-551E-8156-FF666B32CE56}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YuGiOhOverlay.Vision", "YuGiOhOverlay.Vision\YuGiOhOverlay.Vision.csproj", "{8C54DA9E-60C9-5C4E-856C-8FB362A1647E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YuGiOhOverlay.Vision.Tests", "YuGiOhOverlay.Vision.Tests\YuGiOhOverlay.Vision.Tests.csproj", "{914C5F8A-7EEE-5F91-9727-874A5FFE1C97}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YuGiOhOverlay.Windows", "YuGiOhOverlay.Windows\YuGiOhOverlay.Windows.csproj", "{FBD92706-7AE8-5E42-8B1B-311D068AD366}"
+EndProject
+Global
+    GlobalSection(SolutionConfigurationPlatforms) = preSolution
+        Debug|Any CPU = Debug|Any CPU
+        Release|Any CPU = Release|Any CPU
+    EndGlobalSection
+    GlobalSection(ProjectConfigurationPlatforms) = postSolution
+        {BECF4041-64E8-594B-BFB7-29AD005B06D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {BECF4041-64E8-594B-BFB7-29AD005B06D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {BECF4041-64E8-594B-BFB7-29AD005B06D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {BECF4041-64E8-594B-BFB7-29AD005B06D3}.Release|Any CPU.Build.0 = Release|Any CPU
+        {0FE9C4E1-C60A-5831-92AF-3201DD9BC801}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {0FE9C4E1-C60A-5831-92AF-3201DD9BC801}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {0FE9C4E1-C60A-5831-92AF-3201DD9BC801}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {0FE9C4E1-C60A-5831-92AF-3201DD9BC801}.Release|Any CPU.Build.0 = Release|Any CPU
+        {423FA435-1108-510F-80C1-B98E96074F25}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {423FA435-1108-510F-80C1-B98E96074F25}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {423FA435-1108-510F-80C1-B98E96074F25}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {423FA435-1108-510F-80C1-B98E96074F25}.Release|Any CPU.Build.0 = Release|Any CPU
+        {60688259-E4DC-5FC8-9242-EA945CFB4A1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {60688259-E4DC-5FC8-9242-EA945CFB4A1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {60688259-E4DC-5FC8-9242-EA945CFB4A1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {60688259-E4DC-5FC8-9242-EA945CFB4A1C}.Release|Any CPU.Build.0 = Release|Any CPU
+        {5F346C4D-E9FD-551E-8156-FF666B32CE56}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {5F346C4D-E9FD-551E-8156-FF666B32CE56}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {5F346C4D-E9FD-551E-8156-FF666B32CE56}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {5F346C4D-E9FD-551E-8156-FF666B32CE56}.Release|Any CPU.Build.0 = Release|Any CPU
+        {8C54DA9E-60C9-5C4E-856C-8FB362A1647E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {8C54DA9E-60C9-5C4E-856C-8FB362A1647E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {8C54DA9E-60C9-5C4E-856C-8FB362A1647E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {8C54DA9E-60C9-5C4E-856C-8FB362A1647E}.Release|Any CPU.Build.0 = Release|Any CPU
+        {914C5F8A-7EEE-5F91-9727-874A5FFE1C97}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {914C5F8A-7EEE-5F91-9727-874A5FFE1C97}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {914C5F8A-7EEE-5F91-9727-874A5FFE1C97}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {914C5F8A-7EEE-5F91-9727-874A5FFE1C97}.Release|Any CPU.Build.0 = Release|Any CPU
+        {FBD92706-7AE8-5E42-8B1B-311D068AD366}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {FBD92706-7AE8-5E42-8B1B-311D068AD366}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {FBD92706-7AE8-5E42-8B1B-311D068AD366}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {FBD92706-7AE8-5E42-8B1B-311D068AD366}.Release|Any CPU.Build.0 = Release|Any CPU
+    EndGlobalSection
+EndGlobal
