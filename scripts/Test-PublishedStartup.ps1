@@ -7,6 +7,7 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not $IsWindows) { throw 'This smoke test requires Windows.' }
 $executablePath = (Resolve-Path -LiteralPath $Executable).Path
+$startedAt = Get-Date
 $applicationProcess = Start-Process -FilePath $executablePath -PassThru
 try {
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
@@ -38,6 +39,14 @@ try {
     }
     if ($applicationProcess.ExitCode -ne 0) { throw "Application closed with code $($applicationProcess.ExitCode)." }
     Write-Host 'Published executable closed cleanly with exit code 0.'
+}
+catch {
+    $failure = $_
+    Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = '.NET Runtime'; StartTime = $startedAt } -ErrorAction SilentlyContinue |
+        Where-Object { $_.Message -like '*YuGiOhOverlay.UI.exe*' } |
+        Select-Object -First 1 -ExpandProperty Message |
+        ForEach-Object { Write-Host $_ }
+    throw $failure
 }
 finally {
     $applicationProcess.Refresh()

@@ -216,6 +216,8 @@ public partial class MainWindow : Window
         _overlay.Close();
         _lifetime.Dispose();
         _canClose = true;
-        Close();
+        // StopAsync can complete synchronously when observation never started.
+        // Queue the second close after the cancelled Closing event has returned.
+        await Dispatcher.InvokeAsync(Close);
     }
 }
