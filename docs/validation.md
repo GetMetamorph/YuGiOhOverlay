@@ -4,6 +4,14 @@
 
 La CI vérifie aussi le contrôle de progression extrait du vrai XAML et lance l’EXE publié via `scripts/Test-PublishedStartup.ps1` : fenêtre de configuration visible et réactive, puis fermeture avec code 0. Aucun jeu, scan ou clic de jeu n’est lancé par ce test.
 
+Deux régressions sont couvertes : la progression en lecture seule ne doit pas recevoir une liaison WPF bidirectionnelle, et fermer la configuration sans avoir lancé l’observation ne doit pas déclencher un second `Close()` pendant l’événement `Closing`. Le test de l’EXE attend également les erreurs de rendu différées ; en cas de crash, il affiche l’événement `.NET Runtime` associé à cette exécution. L’archive Windows n’est publiée que si ce contrôle réussit.
+
+Pour vérifier un dossier publié localement dans PowerShell 7 :
+
+```powershell
+./scripts/Test-PublishedStartup.ps1 -Executable ./artifacts/windows-x64/YuGiOhOverlay.UI.exe
+```
+
 1. **Démo** : les deux cartes fictives et le combo apparaissent après trois observations ; changer d'étape, suspendre et relancer. Aucune fenêtre de jeu n'est nécessaire et aucun clic n'est émis.
 2. **Import** : synchroniser le lien Blue-Eyes, vérifier les exclusions, ouvrir une source et comparer l'ordre des étapes, leurs annotations, les notes et les conditions avec le site. Débrancher le réseau après synchronisation : le catalogue reste chargeable. Une URL invalide ou un JSON de version inconnue doit afficher une erreur sans remplacer le catalogue précédent.
 3. **Calibration** : tester 1920×1080/2560×1440 et DPI 100/150 %, fenêtres déplacées et écran secondaire. Seule la main doit apparaître dans le diagnostic. Changer de ratio/DPI pendant l'observation doit demander une recalibration.
