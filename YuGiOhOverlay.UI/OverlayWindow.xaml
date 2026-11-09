@@ -38,7 +38,7 @@
                         <StackPanel>
                             <TextBlock Text="{Binding StepLabel}" Foreground="{StaticResource Accent}" FontSize="11" FontWeight="Bold" />
                             <TextBlock Text="{Binding ComboTitle}" FontSize="18" FontWeight="SemiBold" Margin="0,8,0,10" />
-                            <ProgressBar Value="{Binding Progress}" Maximum="100" Height="4" Foreground="{StaticResource Accent}" Background="#28434A" Margin="0,0,0,14" />
+                            <ProgressBar Value="{Binding Progress, Mode=OneWay}" Maximum="100" Height="4" Foreground="{StaticResource Accent}" Background="#28434A" Margin="0,0,0,14" />
                             <ItemsControl ItemsSource="{Binding StepLines}">
                                 <ItemsControl.ItemTemplate><DataTemplate>
                                     <StackPanel>
