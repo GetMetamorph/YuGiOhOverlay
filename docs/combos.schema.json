@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "YuGiOhOverlay combo catalog v2",
+  "title": "YuGiOhOverlay combo catalog v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,7 +14,7 @@
   ],
   "properties": {
     "version": {
-      "const": 2
+      "const": 3
     },
     "deckId": {
       "type": "string",
@@ -100,7 +100,8 @@
         "author",
         "explanation",
         "requiredCards",
-        "excludedCardIds"
+        "excludedCardIds",
+        "guideSteps"
       ],
       "properties": {
         "id": {
@@ -169,6 +170,131 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "guideSteps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/$defs/guideStep"
+          }
+        }
+      }
+    },
+    "instruction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cardName",
+        "action",
+        "detail",
+        "connector"
+      ],
+      "properties": {
+        "cardId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cardName": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detail": {
+          "type": "string"
+        },
+        "connector": {
+          "type": "string"
+        }
+      }
+    },
+    "cue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "area",
+        "cards"
+      ],
+      "properties": {
+        "area": {
+          "enum": [
+            "hand",
+            "alliedField"
+          ]
+        },
+        "cards": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/requirement"
+          }
+        }
+      }
+    },
+    "branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "steps"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/$defs/guideStep"
+          }
+        }
+      }
+    },
+    "guideStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instructions",
+        "conditionLabel",
+        "branches"
+      ],
+      "properties": {
+        "instructions": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/instruction"
+          }
+        },
+        "conditionLabel": {
+          "type": "string"
+        },
+        "branches": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/branch"
+          }
+        },
+        "cue": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/cue"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     }

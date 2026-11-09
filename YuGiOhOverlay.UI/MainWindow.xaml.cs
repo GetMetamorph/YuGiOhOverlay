@@ -35,6 +35,7 @@ public partial class MainWindow : Window
             SourceUrl.Text = _settings.SourceUrl;
             DiagnosticsCheck.IsChecked = _settings.Recognition.Diagnostics;
             CalibrationStatus.Text = _settings.Capture is null ? "Calibration requise" : "Profil mémorisé · vérifier la zone dans le jeu";
+            FieldCalibrationStatus.Text = _settings.FieldCapture is null ? "Terrain non calibré" : "Terrain allié mémorisé";
             SetCatalog(await _services.Repository.LoadAsync(_lifetime.Token));
             RefreshTargets();
         });
@@ -69,7 +70,7 @@ public partial class MainWindow : Window
 
     private async void Import_Click(object sender, RoutedEventArgs e) => await RunUiAsync(async () =>
     {
-        var dialog = new Microsoft.Win32.OpenFileDialog { Filter = "Catalogue v2 (*.json)|*.json", CheckFileExists = true };
+        var dialog = new Microsoft.Win32.OpenFileDialog { Filter = "Catalogue v2 / v3 (*.json)|*.json", CheckFileExists = true };
         if (dialog.ShowDialog(this) != true) return;
         await StopAsync();
         var catalog = await new JsonComboRepository(dialog.FileName).LoadAsync(_lifetime.Token)
@@ -91,19 +92,29 @@ public partial class MainWindow : Window
             ?? windows.FirstOrDefault(w => w.Title.Contains("Master Duel", StringComparison.OrdinalIgnoreCase));
     }
 
-    private async void Calibrate_Click(object sender, RoutedEventArgs e) => await RunUiAsync(async () =>
+    private async void Calibrate_Click(object sender, RoutedEventArgs e) => await CalibrateAsync(false);
+    private async void CalibrateField_Click(object sender, RoutedEventArgs e) => await CalibrateAsync(true);
+    private Task CalibrateAsync(bool field) => RunUiAsync(async () =>
     {
         await StopAsync();
         var target = TargetCombo.SelectedItem as TargetWindow ?? throw new InvalidOperationException("Choisis d’abord la fenêtre du jeu.");
         var geometry = WindowCatalog.Geometry(target);
         _overlay.Hide();
-        var calibration = new CalibrationWindow(geometry);
+        var calibration = new CalibrationWindow(geometry, field);
         if (calibration.ShowDialog() != true || calibration.Selection is not { } selection) return;
         if (WindowCatalog.Geometry(target) != geometry) throw new InvalidOperationException("La fenêtre a bougé. Recommencer la calibration.");
-        _settings = _settings with { Capture = new(selection, geometry.Width / (double)geometry.Height, geometry.Dpi) };
+        if (field && _settings.Capture is { } hand && hand.Hand.Overlap(selection) > 0)
+            throw new InvalidOperationException("Le terrain allié ne doit pas inclure la zone de main.");
+        var profile = new CaptureProfile(selection, geometry.Width / (double)geometry.Height, geometry.Dpi);
+        _settings = field ? _settings with { FieldCapture = profile } : _settings with
+        {
+            Capture = profile,
+            FieldCapture = _settings.FieldCapture is { } previous && previous.Hand.Overlap(selection) > 0 ? null : _settings.FieldCapture
+        };
         await _services.SaveSettingsAsync(_settings, _lifetime.Token);
-        CalibrationStatus.Text = $"Zone enregistrée · {selection.Width:P0} × {selection.Height:P0} de la fenêtre";
-        Message.Text = "Calibration enregistrée. Laisse toutes les illustrations de la main dans cette zone.";
+        CalibrationStatus.Text = _settings.Capture is null ? "Calibration requise" : "Main mémorisée";
+        FieldCalibrationStatus.Text = _settings.FieldCapture is null ? "Terrain non calibré" : "Terrain allié mémorisé";
+        Message.Text = field ? "Terrain allié enregistré pour les étapes d’invocation." : "Main enregistrée pour la détection et les cartes ajoutées.";
     });
 
     private async void Start_Click(object sender, RoutedEventArgs e) => await RunUiAsync(async () =>
@@ -115,7 +126,7 @@ public partial class MainWindow : Window
         if (catalog.Rules.Count == 0) throw new InvalidOperationException("Le catalogue ne contient aucun combo utilisable.");
         _settings = _settings with { Recognition = _settings.Recognition with { Diagnostics = DiagnosticsCheck.IsChecked == true } };
         await _services.SaveSettingsAsync(_settings, _lifetime.Token);
-        _viewModel.Reset();
+        _viewModel.Suspend();
         _overlay.Show();
         _overlay.SetPassive(true);
         _observationCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
@@ -126,10 +137,10 @@ public partial class MainWindow : Window
 
     private async Task RunObservationAsync(TargetWindow target, CaptureProfile profile, ComboCatalog catalog, CancellationToken ct)
     {
-        try { await _services.ObserveAsync(target, profile, _settings.Recognition, catalog, _viewModel, ct); }
+        try { await _services.ObserveAsync(target, profile, _settings.Recognition, catalog, _viewModel, _viewModel.Session, _settings.FieldCapture, ct); }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex) { Message.Text = "Observation arrêtée : " + ex.Message; }
-        finally { _observationCancellation?.Cancel(); StopButton.IsEnabled = false; _viewModel.Reset(); UpdateButtons(); }
+        finally { _observationCancellation?.Cancel(); StopButton.IsEnabled = false; _viewModel.Suspend(); UpdateButtons(); }
     }
 
     private async void Demo_Click(object sender, RoutedEventArgs e) => await RunUiAsync(async () =>
@@ -147,7 +158,7 @@ public partial class MainWindow : Window
 
     private async Task RunDemoAsync(DemoSession demo, CancellationToken ct)
     {
-        try { await demo.RunAsync(_viewModel, ct); }
+        try { await demo.RunAsync(_viewModel, ct, _viewModel.Session); }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex) { Message.Text = "Démo arrêtée : " + ex.Message; }
         finally
@@ -167,7 +178,7 @@ public partial class MainWindow : Window
         _observationCancellation?.Dispose();
         _observationCancellation = null;
         _observation = null;
-        _viewModel.Reset();
+        _viewModel.Suspend();
         StopButton.IsEnabled = false;
         UpdateButtons();
     }

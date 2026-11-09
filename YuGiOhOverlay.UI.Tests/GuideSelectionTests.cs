@@ -46,6 +46,50 @@ public sealed class GuideSelectionTests
         Assert.Null(model.Selected);
     });
 
+    [Fact]
+    public Task FollowHidesStartersAndExitRejectsLateObservation() => OnDispatcher(async dispatcher =>
+    {
+        var (model, _, action) = Create(dispatcher);
+        await Present(model, [action]);
+        var beforeFollow = model.Session.Snapshot.Revision;
+        model.ToggleFollow();
+        Assert.True(model.IsFollowing);
+        Assert.Empty(model.Hand); Assert.Empty(model.Recommendations);
+        Assert.Equal("Quitter le combo", model.FollowLabel);
+        await model.PresentAsync(new("Old hand", new(DateTimeOffset.UtcNow, [], true), [action], SessionRevision: beforeFollow), default);
+        Assert.Empty(model.Recommendations); Assert.Equal(action, model.Selected);
+        var duringGuide = model.Session.Snapshot.Revision;
+        model.ExitCombo();
+        await model.PresentAsync(new("Late guide", new(DateTimeOffset.UtcNow, [], true), [action], SessionRevision: duringGuide), default);
+        Assert.Null(model.Selected); Assert.Empty(model.Recommendations); Assert.False(model.IsFollowing);
+    });
+
+    [Fact]
+    public Task SuspendKeepsComboAndStepUntilExplicitExit() => OnDispatcher(async dispatcher =>
+    {
+        var (model, _, action) = Create(dispatcher);
+        await Present(model, [action]);
+        model.MoveStep(1);
+        var revision = model.Session.Snapshot.Revision;
+        model.Suspend();
+        Assert.True(model.IsFollowing);
+        Assert.Equal(action.Combo.Actions[1], model.StepText);
+        Assert.True(model.Session.Snapshot.Revision > revision);
+        model.ExitCombo(); Assert.False(model.IsFollowing);
+    });
+
+    [Fact]
+    public void StructuredGuideSeparatesCardActionDetailAndChoices()
+    {
+        var step = new ComboStep([new("a", "Card A", "Invoquer", "Normal summon", "arrow")], "Choose",
+            [new("If allowed", [new([new("b", "Card B", "Ajouter", "To hand", "")], "", [])])]);
+        var lines = GuideTextFormatter.Format(step, "fallback");
+        Assert.Equal("Card A", lines[0].CardName); Assert.Equal("Invoquer", lines[0].Badge);
+        Assert.Equal("Normal summon", lines[0].Detail); Assert.Equal("Puis ↓", lines[0].Connector);
+        Assert.True(lines[1].IsBranch); Assert.Equal("Card B", lines[2].CardName);
+        Assert.Equal("Text\nNext & more", GuideTextFormatter.PlainText("<p>Text</p>Next &amp; more"));
+    }
+
     private static (AssistantViewModel Model, ListBox List, RecommendedAction Action) Create(Dispatcher dispatcher)
     {
         var catalog = new DemoSession().Catalog;

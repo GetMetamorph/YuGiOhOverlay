@@ -9,7 +9,7 @@ using YuGiOhOverlay.Windows;
 
 namespace YuGiOhOverlay.UI;
 
-public sealed record AssistantSettings(string SourceUrl, CaptureProfile? Capture, RecognitionOptions Recognition)
+public sealed record AssistantSettings(string SourceUrl, CaptureProfile? Capture, RecognitionOptions Recognition, CaptureProfile? FieldCapture = null)
 {
     public static AssistantSettings Default => new(
         "https://www.masterduelmeta.com/combos-and-counters?combosDeckType=61ebdf8e0a39c54503c45337#combos", null, new());
@@ -29,7 +29,7 @@ public sealed class CompositionRoot : IDisposable
     public CompositionRoot()
     {
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("YuGiOhOverlay/2.0 (+https://github.com/GetMetamorph/YuGiOhOverlay)");
-        Repository = new JsonComboRepository(Path.Combine(_folder, "combos.v2.json"));
+        Repository = new JsonComboRepository(Path.Combine(_folder, "combos.v3.json"), Path.Combine(_folder, "combos.v2.json"));
         MasterDuelMeta = new(_http, new MasterDuelMetaParser(), _clock);
     }
 
@@ -55,7 +55,7 @@ public sealed class CompositionRoot : IDisposable
     }
 
     public Task ObserveAsync(TargetWindow target, CaptureProfile profile, RecognitionOptions options,
-        ComboCatalog catalog, IOverlayPresenter presenter, CancellationToken ct) => Task.Run(async () =>
+        ComboCatalog catalog, IOverlayPresenter presenter, GuideSession guideSession, CaptureProfile? fieldProfile, CancellationToken ct) => Task.Run(async () =>
     {
         var images = new List<(string Id, byte[] Image)>();
         foreach (var card in catalog.Cards)
@@ -75,7 +75,8 @@ public sealed class CompositionRoot : IDisposable
         using var recognizer = new SiftHandRecognizer(images, options);
         var capture = new WindowCapture(target, profile, _clock, options.MaximumImagePixels);
         var engine = new RecommendationEngine(options.MinimumConfidence, TimeSpan.FromMilliseconds(options.MaximumAgeMilliseconds));
-        await new ObserveHand(capture, recognizer, engine, presenter, _clock, options).RunAsync(catalog, ct);
+        var fieldCapture = fieldProfile is null ? null : new WindowCapture(target, fieldProfile, _clock, options.MaximumImagePixels);
+        await new ObserveHand(capture, recognizer, engine, presenter, _clock, options, guideSession, fieldCapture).RunAsync(catalog, ct);
     }, ct);
 
     public void Dispose() => _http.Dispose();

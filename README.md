@@ -17,7 +17,9 @@ Dans l'application :
 2. Coller le lien **Combos & Counters** avec le deck sélectionné. Le lien Blue-Eyes est prérempli. **Synchroniser** importe les combos et met leurs illustrations en cache local.
 3. Sélectionner la fenêtre **Master Duel**. En mode fenêtré ou sans bordure, afficher une main puis **Calibrer** en traçant un rectangle contenant toutes ses illustrations visibles. Échap annule. Aucune capture n'est enregistrée pendant cette sélection.
 4. **Lancer l'observation**, puis remettre le jeu au premier plan. Le programme attend plusieurs observations cohérentes avant de suggérer un combo. Une fenêtre masquée, minimisée ou inactive suspend l'observation.
-5. Choisir une suggestion, lire les prérequis et **Suivre ce combo**. Le guide reste alors affiché même quand une carte quitte la main. Avancer manuellement dans les étapes ; revenir à la détection pour choisir une nouvelle ligne.
+5. Choisir une suggestion, lire les prérequis et **Suivre ce combo**. La liste des cartes de départ disparaît et la recherche de nouveaux combos s’arrête réellement. **Quitter le combo** reprend la recherche après une nouvelle stabilisation ; Suspendre conserve le guide et son étape.
+6. Pour suivre les invocations, utiliser aussi **Calibrer mon terrain** avant de lancer l’observation : sélectionner uniquement le terrain allié, sans la main ni le terrain adverse. Les ajouts à la main utilisent la zone de main déjà calibrée.
+7. **Avancer automatiquement sur indice visuel** observe uniquement les cartes attendues par l’étape actuelle. Attendre l’indication **Prêt** avant de réaliser chaque étape pour établir son état initial. Désactiver cette case pour un suivi entièrement manuel. Les flèches restent disponibles pour corriger ou confirmer une étape.
 
 | Raccourci | Action |
 | --- | --- |
@@ -35,7 +37,10 @@ Déplacer l'overlay par son en-tête en mode interactif. Il reste au-dessus des 
 - La capture GDI vise uniquement la ROI de la fenêtre sélectionnée. Le plein écran exclusif peut donner une image noire ; utiliser le mode fenêtré sans bordure. La fenêtre doit rester visible et non recouverte par une autre application.
 - Les coordonnées sont relatives au client de la fenêtre et suivent ses déplacements. Un changement de ratio ou de DPI demande une recalibration ; une variation de taille remet à zéro la stabilisation.
 - Le diagnostic affiche uniquement la ROI, ses boîtes, les noms, scores et temps capture/vision/décision. Il reste en mémoire. Aucune capture ne quitte le PC.
-- Le terrain, le tour, les effets déjà utilisés, le deck restant et les interruptions ne sont pas reconnus dans cette version. Les prérequis et notes de l'auteur restent visibles pour vérification humaine. Les branches conditionnelles sont affichées comme des choix manuels.
+- Pendant un combo, seules les illustrations attendues par l’étape sont recherchées, dans la main ou la zone de terrain allié. Il n’y a aucune recherche de starters ni classement de combos en arrière-plan. Pour une étape manuelle, aucune capture n’est effectuée.
+- L’avancement automatique est une **aide expérimentale fondée sur un résultat visuel**, pas une vérification des règles ou de la résolution d’un effet. Il vise les étapes dont le dernier résultat explicite est un ajout à la main ou une invocation. Une base stable est d’abord observée, puis une augmentation du nombre d’exemplaires attendus doit être confirmée sur plusieurs images. Une carte déjà visible ne valide rien ; chaque étape repart de sa propre base. Un changement de fenêtre, une analyse trop lente ou une interruption annule la confirmation en cours.
+- Une carte jouée avant l’acquisition de la base, une animation manquée, une illustration masquée ou un retour au même nombre d’exemplaires demande une validation manuelle. Une pioche indépendante ou une autre action qui produit la même carte peut ressembler au résultat attendu : garder les flèches de correction à portée de main et désactiver l’option si nécessaire.
+- Les activations seules, poses face cachée, choix conditionnels et résultats non déterminables restent manuels. Le terrain complet, le tour, les effets déjà utilisés, le deck restant et les interruptions ne sont pas interprétés. Les prérequis et notes de l’auteur restent visibles.
 - Les suggestions sont triées par votes nets du site, puis identifiant stable. Ce classement n'est pas une évaluation stratégique du meilleur coup.
 
 ## Source Master Duel Meta
@@ -48,9 +53,11 @@ Les conditions prises en charge sont des cartes précises liées uniquement par 
 
 ## Données, ancien format et configuration
 
-Les nouveaux fichiers résident dans `%LOCALAPPDATA%\YuGiOhOverlay` : `assistant.json`, `combos.v2.json` et `artwork/`. Les réglages de reconnaissance sont typés dans `YuGiOhOverlay.Application/ObservationContracts.cs`, chargés depuis `assistant.json` et validés avant observation. Fermer l'application avant de les modifier.
+Les fichiers résident dans `%LOCALAPPDATA%\YuGiOhOverlay` : `assistant.json`, `combos.v3.json` et `artwork/`. Les anciennes données `combos.v2.json` sont lues si aucun v3 n’existe, puis migrées en mémoire sans modifier l’original. Les réglages de reconnaissance sont typés dans `YuGiOhOverlay.Application/ObservationContracts.cs`, chargés depuis `assistant.json` et validés avant observation. Fermer l'application avant de les modifier.
 
-Le catalogue v2 est documenté dans [docs/combos.schema.json](docs/combos.schema.json) et illustré par [examples/combos.v2.example.json](examples/combos.v2.example.json), qui contient uniquement des données fictives. Le bouton **Importer un catalogue JSON** attend un catalogue v2 avec les identifiants de cartes Master Duel Meta pour récupérer les illustrations ; l'exemple de contrat n'est pas un deck réel à synchroniser.
+Le catalogue v3 est documenté dans [docs/combos.schema.json](docs/combos.schema.json) et illustré par [examples/combos.v3.example.json](examples/combos.v3.example.json). Il ajoute `guideSteps` : instructions séparées (carte/action/précision/connecteur), branches et éventuel `cue` décrivant l’apparition attendue. Les actions textuelles restent conservées. Le contrat v2 reste disponible dans [docs/combos.v2.schema.json](docs/combos.v2.schema.json).
+
+**Après mise à jour, resynchroniser le deck** pour récupérer la présentation structurée et les indices visuels. Un ancien catalogue v2 conserve ses textes et reste utilisable en manuel : la migration n’invente pas d’événement visuel. Le bouton **Importer un catalogue JSON** accepte v2 et v3. Les exemples contiennent uniquement des données fictives ; ce ne sont pas des decks réels à synchroniser.
 
 Les `data.json` v1 restent accessibles via **Mes anciennes fiches**, sans modification automatique. Ils ne contiennent pas les prérequis nécessaires à la détection : ils ne sont donc pas transformés en règles automatiques. Resynchroniser un deck depuis Master Duel Meta pour passer au nouveau parcours.
 
@@ -81,7 +88,7 @@ dotnet test YuGiOhOverlay.UI.Tests -c Release
 .\build-release.bat
 ```
 
-Les tests couvrent conditions AND/OR, quantités, priorités, états inconnus/périmés, conflits et doublons, stabilisation, annulation, erreurs de capture simulées, JSON invalide/versionné et import. Les tests natifs de vision utilisent des illustrations synthétiques déterministes (rotation, échelle, double exemplaire, image vide), jamais une vraie capture ou un clic. Ils nécessitent Windows pour le runtime OpenCV inclus dans le projet de tests.
+Les tests couvrent conditions AND/OR, quantités, priorités, états inconnus/périmés, conflits et doublons, stabilisation, annulation, erreurs de capture simulées, JSON invalide/versionné, migration v2/v3 et import. Le suivi est testé avec des adaptateurs simulés : suspension réelle de la recherche, apparition stable, ancien résultat rejeté, changement de géométrie, progression unique et reprise de recherche après sortie. Les tests WPF couvrent le verrouillage du guide et la lisibilité des instructions. Les tests natifs de vision utilisent des illustrations synthétiques déterministes (rotation, échelle, double exemplaire, image vide), jamais une vraie capture ou un clic. Ils nécessitent Windows pour le runtime OpenCV inclus dans le projet de tests.
 
 La CI Windows compile, exécute les tests et publie un artefact `YuGiOhOverlay-windows-x64` contenant l'exécutable autonome. La validation en jeu et du rendu WPF reste à faire sur Windows ; voir [docs/validation.md](docs/validation.md).
 

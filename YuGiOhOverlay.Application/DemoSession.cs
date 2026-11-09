@@ -13,13 +13,13 @@ public sealed class DemoSession
              "Clique sur Suivre ce combo : le guide reste affiché même lorsque les suggestions changent.",
              "Utilise les flèches ou Ctrl+→ / Ctrl+← pour avancer. Ces raccourcis ne cliquent jamais dans le jeu."],
             "", "Démo locale", "Ces données sont fictives et ne décrivent aucun combo Yu-Gi-Oh!.", [], [])], []);
-    public Task RunAsync(IOverlayPresenter presenter, CancellationToken cancellationToken)
+    public Task RunAsync(IOverlayPresenter presenter, CancellationToken cancellationToken, GuideSession? guideSession = null)
     {
         var clock = new DemoClock();
         var options = new RecognitionOptions();
         return new ObserveHand(new DemoCapture(clock), new DemoRecognizer(),
             new RecommendationEngine(options.MinimumConfidence, TimeSpan.FromMilliseconds(options.MaximumAgeMilliseconds)),
-            new DemoPresenter(presenter), clock, options).RunAsync(Catalog, cancellationToken);
+            new DemoPresenter(presenter), clock, options, guideSession).RunAsync(Catalog, cancellationToken);
     }
     private sealed class DemoClock : IClock { public DateTimeOffset UtcNow => DateTimeOffset.UtcNow; }
     private sealed class DemoCapture(IClock clock) : IScreenCapture

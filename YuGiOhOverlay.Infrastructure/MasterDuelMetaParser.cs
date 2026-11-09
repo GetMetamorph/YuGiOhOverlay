@@ -33,7 +33,7 @@ public sealed class MasterDuelMetaParser
                 rules.Add(new(id, title, votes, condition, actions,
                     $"https://www.masterduelmeta.com/combo/{id}",
                     row.TryGetProperty("author", out var author) ? Optional(author, "username") : "",
-                    Optional(row, "notes"), required, excluded));
+                    Optional(row, "notes"), required, excluded, ComboStepParser.Parse(row.GetProperty("steps"))));
             }
             catch (NotSupportedException ex) { warnings.Add($"{title} : {ex.Message}"); }
         }
@@ -48,9 +48,10 @@ public sealed class MasterDuelMetaParser
             Conditions = new(rule.Conditions.Alternatives.Select(alternative => (IReadOnlyList<CardRequirement>)alternative
                 .GroupBy(r => CanonicalId(r.CardId), StringComparer.Ordinal)
                 .Select(g => new CardRequirement(g.Key, g.Sum(r => r.Count))).ToArray()).ToArray()),
-            ExcludedCardIds = rule.ExcludedCardIds.Select(CanonicalId).Distinct(StringComparer.Ordinal).ToArray()
+            ExcludedCardIds = rule.ExcludedCardIds.Select(CanonicalId).Distinct(StringComparer.Ordinal).ToArray(),
+            GuideSteps = rule.GuideSteps!.Select(step => ComboStepParser.Remap(step, CanonicalId)).ToArray()
         }).ToList();
-        var catalog = new ComboCatalog(2, deckId, deckName ?? "Deck sans combo", importedAt,
+        var catalog = new ComboCatalog(3, deckId, deckName ?? "Deck sans combo", importedAt,
             canonical.OrderBy(c => c.Id, StringComparer.Ordinal).ToArray(), rules, warnings);
         CatalogValidator.Validate(catalog);
         return catalog;

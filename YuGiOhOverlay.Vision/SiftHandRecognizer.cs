@@ -7,7 +7,7 @@ namespace YuGiOhOverlay.Vision;
 
 // Owned by one observation session; never called concurrently. Feature descriptors
 // come only from downloaded artwork, not language-dependent card names or borders.
-public sealed class SiftHandRecognizer : IGameStateRecognizer, IDisposable
+public sealed class SiftHandRecognizer : ITargetedGameStateRecognizer, IDisposable
 {
     private sealed record Template(string Id, KeyPoint[] Points, Mat Descriptors, int Width, int Height) : IDisposable
     {
@@ -42,13 +42,17 @@ public sealed class SiftHandRecognizer : IGameStateRecognizer, IDisposable
     }
 
     public Task<IReadOnlyList<CardDetection>> RecognizeAsync(CapturedFrame frame, CancellationToken cancellationToken)
+        => RecognizeAsync(frame, null, cancellationToken);
+
+    public Task<IReadOnlyList<CardDetection>> RecognizeAsync(CapturedFrame frame, IReadOnlySet<string>? cardIds, CancellationToken cancellationToken)
     {
-        try { return Task.FromResult(Recognize(frame, cancellationToken)); }
+        try { return Task.FromResult(Recognize(frame, cardIds, cancellationToken)); }
         catch (OpenCVException ex) { throw new InvalidOperationException("Analyse visuelle impossible.", ex); }
     }
 
-    private IReadOnlyList<CardDetection> Recognize(CapturedFrame frame, CancellationToken cancellationToken)
+    private IReadOnlyList<CardDetection> Recognize(CapturedFrame frame, IReadOnlySet<string>? cardIds, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var scene = Cv2.ImDecode(frame.Png, ImreadModes.Grayscale);
         if (scene.Empty() || (long)scene.Width * scene.Height > _options.MaximumImagePixels)
             throw new InvalidDataException("Zone de capture illisible ou trop grande.");
@@ -60,6 +64,7 @@ public sealed class SiftHandRecognizer : IGameStateRecognizer, IDisposable
         foreach (var template in _templates)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (cardIds is not null && !cardIds.Contains(template.Id)) continue;
             if (template.Descriptors.Rows < _options.MinimumMatches) continue;
             // Scene -> reference permits repeated copies of the same card in different locations.
             var matches = matcher.KnnMatch(descriptors, template.Descriptors, 2)

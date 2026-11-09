@@ -39,6 +39,11 @@
                             <Button Content="Calibrer la zone de main" Click="Calibrate_Click" />
                             <TextBlock x:Name="CalibrationStatus" Text="Calibration requise" VerticalAlignment="Center" Style="{StaticResource Caption}" />
                         </WrapPanel>
+                        <WrapPanel Margin="0,4,0,8">
+                            <Button Content="Calibrer mon terrain" Click="CalibrateField_Click" />
+                            <TextBlock x:Name="FieldCalibrationStatus" Text="Terrain non calibré" VerticalAlignment="Center" Style="{StaticResource Caption}" />
+                        </WrapPanel>
+                        <TextBlock Text="Facultatif : cadre uniquement ton terrain, hors main et terrain adverse, pour suivre les invocations. Les autres étapes restent validables à la main." Style="{StaticResource Caption}" />
                         <CheckBox x:Name="DiagnosticsCheck" Content="Afficher le diagnostic en mémoire (aucune capture enregistrée)" />
                     </StackPanel>
                 </Border>

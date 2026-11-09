@@ -19,6 +19,7 @@
             </Grid>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,16,0,12">
                 <StackPanel>
+                    <StackPanel Visibility="{Binding SearchVisibility}">
                     <TextBlock Text="CARTES IDENTIFIÉES" FontSize="10" Foreground="{StaticResource Muted}" Margin="0,0,0,8" />
                     <ItemsControl ItemsSource="{Binding Hand}">
                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
@@ -32,11 +33,34 @@
                     <ListBox ItemsSource="{Binding Recommendations}" SelectedItem="{Binding SelectedSuggestion, Mode=TwoWay}" MaxHeight="110">
                         <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Combo.Title}" /></DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
+                    </StackPanel>
                     <Border Background="#162A32" CornerRadius="10" Padding="16" Margin="0,14,0,0" BorderBrush="#37625E" BorderThickness="1">
                         <StackPanel>
                             <TextBlock Text="{Binding StepLabel}" Foreground="{StaticResource Accent}" FontSize="11" FontWeight="Bold" />
                             <TextBlock Text="{Binding ComboTitle}" FontSize="18" FontWeight="SemiBold" Margin="0,8,0,10" />
-                            <TextBlock Text="{Binding StepText}" FontSize="15" LineHeight="23" />
+                            <ProgressBar Value="{Binding Progress}" Maximum="100" Height="4" Foreground="{StaticResource Accent}" Background="#28434A" Margin="0,0,0,14" />
+                            <ItemsControl ItemsSource="{Binding StepLines}">
+                                <ItemsControl.ItemTemplate><DataTemplate>
+                                    <StackPanel>
+                                        <Border Background="#203C43" CornerRadius="8" Padding="12" Margin="0,0,0,6">
+                                            <Border.Style><Style TargetType="Border"><Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsBranch}" Value="True"><Setter Property="BorderBrush" Value="#E3C995" /><Setter Property="BorderThickness" Value="1" /></DataTrigger>
+                                            </Style.Triggers></Style></Border.Style>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Badge}" Foreground="{StaticResource Accent}" FontSize="11" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding CardName}" FontSize="16" FontWeight="SemiBold" Margin="0,4,0,0" />
+                                                <TextBlock Text="{Binding Detail}" Foreground="#D0DFED" FontSize="13" LineHeight="20" Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </Border>
+                                        <TextBlock Text="{Binding Connector}" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" FontSize="11" Margin="0,0,0,6">
+                                            <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers>
+                                                <DataTrigger Binding="{Binding Connector}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                            </Style.Triggers></Style></TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate></ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{Binding NextStep}" Style="{StaticResource Caption}" Margin="0,10,0,0" />
                             <TextBlock Text="{Binding Confidence}" Style="{StaticResource Caption}" Margin="0,12,0,0" />
                         </StackPanel>
                     </Border>
@@ -48,6 +72,11 @@
                 </StackPanel>
             </ScrollViewer>
             <StackPanel Grid.Row="2">
+                <StackPanel Visibility="{Binding GuideVisibility}" Margin="0,0,0,10">
+                    <CheckBox Content="Avancer automatiquement sur indice visuel" IsChecked="{Binding AutoAdvance}" />
+                    <TextBlock Text="{Binding ExpectedOutcome}" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{Binding GuideStatus}" Foreground="#E3C995" FontSize="12" Margin="0,5,0,0" />
+                </StackPanel>
                 <TextBlock Text="{Binding GuideMode}" Style="{StaticResource Caption}" Margin="0,0,0,8" />
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>

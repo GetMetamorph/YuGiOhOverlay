@@ -11,7 +11,14 @@ public sealed record ComboRule(
     string Id, string Title, int Priority, Condition Conditions,
     IReadOnlyList<string> Actions, string SourceUrl, string Author,
     string Explanation, IReadOnlyList<string> RequiredCards,
-    IReadOnlyList<string> ExcludedCardIds);
+    IReadOnlyList<string> ExcludedCardIds, IReadOnlyList<ComboStep>? GuideSteps = null);
+
+public enum ObservationArea { None, Hand, AlliedField }
+public sealed record ComboInstruction(string? CardId, string CardName, string Action, string Detail, string Connector);
+public sealed record ComboBranch(string Label, IReadOnlyList<ComboStep> Steps);
+public sealed record VisualStepCue(ObservationArea Area, IReadOnlyList<CardRequirement> Cards);
+public sealed record ComboStep(IReadOnlyList<ComboInstruction> Instructions, string ConditionLabel,
+    IReadOnlyList<ComboBranch> Branches, VisualStepCue? Cue = null);
 
 public sealed record ComboCatalog(
     int Version, string DeckId, string DeckName, DateTimeOffset ImportedAt,

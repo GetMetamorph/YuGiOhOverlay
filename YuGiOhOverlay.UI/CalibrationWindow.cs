@@ -16,7 +16,7 @@ public sealed class CalibrationWindow : Window
     private readonly Rectangle _rectangle = new() { Stroke = Brushes.Aquamarine, StrokeThickness = 2, Fill = new SolidColorBrush(Color.FromArgb(45, 114, 227, 194)) };
     private Point? _start;
     public NormalizedRect? Selection { get; private set; }
-    public CalibrationWindow(ClientGeometry geometry)
+    public CalibrationWindow(ClientGeometry geometry, bool alliedField = false)
     {
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
@@ -28,7 +28,8 @@ public sealed class CalibrationWindow : Window
         Content = _canvas;
         var hint = new TextBlock
         {
-            Text = "Trace la zone de ta main · relâche pour valider · Échap pour annuler",
+            Text = alliedField ? "Trace uniquement TON terrain (hors main et terrain adverse) · Échap pour annuler"
+                : "Trace la zone de ta main · relâche pour valider · Échap pour annuler",
             Foreground = Brushes.White,
             Background = new SolidColorBrush(Color.FromRgb(15, 30, 45)),
             Padding = new Thickness(14),

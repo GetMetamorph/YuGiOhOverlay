@@ -15,12 +15,17 @@ public interface IGameStateRecognizer
 {
     Task<IReadOnlyList<CardDetection>> RecognizeAsync(CapturedFrame frame, CancellationToken cancellationToken);
 }
+public interface ITargetedGameStateRecognizer : IGameStateRecognizer
+{
+    Task<IReadOnlyList<CardDetection>> RecognizeAsync(CapturedFrame frame, IReadOnlySet<string> cardIds, CancellationToken cancellationToken);
+}
 public interface IOverlayPresenter { Task PresentAsync(ObservationResult result, CancellationToken cancellationToken); }
 
 public sealed record ObservationResult(
     string Status, BoardState State, IReadOnlyList<RecommendedAction> Recommendations,
     byte[]? DiagnosticPng = null, double ElapsedMilliseconds = 0,
-    double CaptureMilliseconds = 0, double RecognitionMilliseconds = 0, double DecisionMilliseconds = 0);
+    double CaptureMilliseconds = 0, double RecognitionMilliseconds = 0, double DecisionMilliseconds = 0,
+    long? SessionRevision = null, ObservationArea Area = ObservationArea.Hand, string GuideStatus = "");
 
 public sealed record RecognitionOptions
 {

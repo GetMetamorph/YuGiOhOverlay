@@ -57,6 +57,16 @@ public sealed class SiftRecognitionTests
         Assert.All(results, d => Assert.True(d.Confidence >= Options.MinimumConfidence));
     }
     [Fact]
+    public async Task FollowingScansOnlyTheExpectedIdentity()
+    {
+        using var reference = Reference(); using var scene = new Mat(400, 800, MatType.CV_8UC1, Scalar.Black);
+        using (var target = new Mat(scene, new Rect(20, 50, 300, 300))) reference.CopyTo(target);
+        using var recognizer = new SiftHandRecognizer([("expected", Encode(reference)), ("other-starter", Encode(reference))], Options);
+        var results = await recognizer.RecognizeAsync(Frame(scene), new HashSet<string> { "expected" }, default);
+        Assert.Equal("expected", Assert.Single(results).CardId);
+    }
+
+    [Fact]
     public async Task CancellationIsObserved()
     {
         using var reference = Reference();

@@ -112,11 +112,51 @@ public sealed class ImportTests
             await repository.SaveAsync(catalog, default);
             Assert.Single((await repository.LoadAsync(default))!.Rules);
             await Assert.ThrowsAsync<InvalidDataException>(() => repository.SaveAsync(catalog with { Version = 99 }, default));
-            Assert.Equal(2, (await repository.LoadAsync(default))!.Version);
+            Assert.Equal(3, (await repository.LoadAsync(default))!.Version);
             await File.WriteAllTextAsync(path, "{ invalid }");
             await Assert.ThrowsAsync<JsonException>(() => repository.LoadAsync(default));
         }
         finally { if (Directory.Exists(folder)) Directory.Delete(folder, true); }
+    }
+    [Theory]
+    [InlineData("search", "Add from deck", ObservationArea.Hand)]
+    [InlineData("summon", "Normal summon", ObservationArea.AlliedField)]
+    public void TerminalOutcomeKeepsStructuredActionAndVisualCue(string symbol, string label, ObservationArea area)
+    {
+        var entry = JsonSerializer.SerializeToElement(new { card = new { _id = CardA, name = "Synthetic a" }, symbol, label });
+        var rule = Assert.Single(Parse(Row([Entry(CardA)], new[] { new { entries = new[] { entry } } })).Rules);
+        var step = Assert.Single(rule.GuideSteps!);
+        Assert.Equal(area, step.Cue!.Area);
+        Assert.Equal(CardA, Assert.Single(step.Cue.Cards).CardId);
+        Assert.Equal(label, Assert.Single(step.Instructions).Detail);
+    }
+    [Theory]
+    [InlineData("effect", "Activate")]
+    [InlineData("summon", "Activate on summon")]
+    [InlineData("search", "If available")]
+    public void AmbiguousOutcomeDoesNotGetAutoCue(string symbol, string label)
+    {
+        var entry = JsonSerializer.SerializeToElement(new { card = new { _id = CardA, name = "Synthetic a" }, symbol, label });
+        var rule = Assert.Single(Parse(Row([Entry(CardA)], new[] { new { entries = new[] { entry } } })).Rules);
+        Assert.Null(Assert.Single(rule.GuideSteps!).Cue);
+    }
+    [Fact]
+    public void V2MigrationPreservesTextAndDoesNotInventVisualChecks()
+    {
+        var old = RecommendationTests.Catalog(RecommendationTests.Rule());
+        var current = CatalogMigration.Upgrade(old);
+        Assert.Equal(3, current.Version); Assert.Equal(2, old.Version);
+        Assert.Equal(old.Rules[0].Actions[0], current.Rules[0].GuideSteps![0].Instructions[0].Detail);
+        Assert.Null(current.Rules[0].GuideSteps![0].Cue);
+        CatalogValidator.Validate(current);
+    }
+    [Fact]
+    public void UnknownVisualCardIsRejected()
+    {
+        var upgraded = CatalogMigration.Upgrade(RecommendationTests.Catalog(RecommendationTests.Rule()));
+        var step = upgraded.Rules[0].GuideSteps![0] with { Cue = new(ObservationArea.Hand, [new("unknown", 1)]) };
+        var rule = upgraded.Rules[0] with { GuideSteps = [step] };
+        Assert.Throws<InvalidDataException>(() => CatalogValidator.Validate(upgraded with { Rules = [rule] }));
     }
     [Fact]
     public void NullCollectionsRejected() => Assert.Throws<InvalidDataException>(() =>

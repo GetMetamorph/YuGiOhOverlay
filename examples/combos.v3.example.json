@@ -1,0 +1,62 @@
+{
+  "version": 3,
+  "deckId": "example",
+  "deckName": "Exemple de format — données fictives",
+  "importedAt": "2026-11-09T00:00:00Z",
+  "cards": [
+    {
+      "id": "demo-card",
+      "name": "Carte fictive"
+    }
+  ],
+  "rules": [
+    {
+      "id": "demo-rule",
+      "title": "Exemple de guide, pas un combo réel",
+      "priority": 0,
+      "conditions": {
+        "alternatives": [
+          [
+            {
+              "cardId": "demo-card",
+              "count": 1
+            }
+          ]
+        ]
+      },
+      "actions": [
+        "Instruction illustrative. Utiliser la démonstration intégrée pour tester sans jeu."
+      ],
+      "sourceUrl": "https://www.masterduelmeta.com/combos-and-counters",
+      "author": "Exemple local",
+      "explanation": "Ce fichier illustre le contrat JSON. Il ne contient pas de données de jeu.",
+      "requiredCards": [],
+      "excludedCardIds": [],
+      "guideSteps": [
+        {
+          "instructions": [
+            {
+              "cardId": "demo-card",
+              "cardName": "Carte fictive",
+              "action": "Ajouter à la main",
+              "detail": "Exemple fictif d’un résultat observable",
+              "connector": ""
+            }
+          ],
+          "conditionLabel": "",
+          "branches": [],
+          "cue": {
+            "area": "hand",
+            "cards": [
+              {
+                "cardId": "demo-card",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "importWarnings": []
+}
