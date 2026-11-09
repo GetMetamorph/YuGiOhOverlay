@@ -1,6 +1,9 @@
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.IO;
+using System.Windows.Markup;
 using System.Windows.Threading;
+using System.Xml.Linq;
 using YuGiOhOverlay.Application;
 using YuGiOhOverlay.Domain;
 using YuGiOhOverlay.UI;
@@ -9,6 +12,49 @@ namespace YuGiOhOverlay.UI.Tests;
 
 public sealed class GuideSelectionTests
 {
+    [Fact]
+    public Task DefaultProgressBindingReproducesReadOnlyPropertyCrash() => OnDispatcher(dispatcher =>
+    {
+        var model = new AssistantViewModel(dispatcher);
+        var bar = new ProgressBar();
+        try
+        {
+            var error = Assert.Throws<InvalidOperationException>(() => bar.SetBinding(ProgressBar.ValueProperty,
+                new Binding(nameof(model.Progress)) { Source = model }));
+            Assert.Contains(nameof(model.Progress), error.Message);
+        }
+        finally { BindingOperations.ClearBinding(bar, ProgressBar.ValueProperty); }
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task ProductionProgressXamlLoadsAndTracksGuideWithoutWritingToModel() => OnDispatcher(async dispatcher =>
+    {
+        // Read the real XAML, so a regression in the view cannot be hidden by a
+        // hand-written test binding with a different Mode.
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var document = XDocument.Load(Path.Combine(AppContext.BaseDirectory, "Fixtures", "OverlayWindow.xaml"));
+        var progress = new XElement(Assert.Single(document.Descendants(presentation + "ProgressBar")));
+        var wrapper = new XElement(presentation + "Grid", new XAttribute(XNamespace.Xmlns + "x", xaml),
+            new XElement(presentation + "Grid.Resources", new XElement(presentation + "SolidColorBrush",
+                new XAttribute(xaml + "Key", "Accent"), new XAttribute("Color", "#72E3C2"))), progress);
+        var grid = (Grid)XamlReader.Parse(wrapper.ToString());
+        var bar = Assert.IsType<ProgressBar>(Assert.Single(grid.Children.Cast<object>()));
+        var (model, _, action) = Create(dispatcher);
+        grid.DataContext = model;
+        await Present(model, [action]);
+        await Flush(dispatcher);
+        Assert.Equal(0, bar.Value);
+        model.MoveStep(1);
+        await Flush(dispatcher);
+        Assert.Equal(model.Progress, bar.Value, 6);
+        Assert.True(bar.Value > 0);
+        model.ExitCombo();
+        await Flush(dispatcher);
+        Assert.Equal(0, bar.Value);
+    });
+
     [Fact]
     public Task FollowingGuideSurvivesHandChangeAndListReset() => OnDispatcher(async dispatcher =>
     {
