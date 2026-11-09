@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\YuGiOhOverlay.Domain\YuGiOhOverlay.Domain.csproj" />
+      <ProjectReference Include="../YuGiOhOverlay.Application/YuGiOhOverlay.Application.csproj" />
+    <ProjectReference Include="../YuGiOhOverlay.Infrastructure/YuGiOhOverlay.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

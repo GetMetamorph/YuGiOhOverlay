@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "YuGiOhOverlay combo catalog v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "deckId",
+    "deckName",
+    "importedAt",
+    "cards",
+    "rules",
+    "importWarnings"
+  ],
+  "properties": {
+    "version": {
+      "const": 3
+    },
+    "deckId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "deckName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "importedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cards": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "$ref": "#/$defs/card"
+      }
+    },
+    "rules": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    },
+    "importWarnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cardId",
+        "count"
+      ],
+      "properties": {
+        "cardId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "priority",
+        "conditions",
+        "actions",
+        "sourceUrl",
+        "author",
+        "explanation",
+        "requiredCards",
+        "excludedCardIds",
+        "guideSteps"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priority": {
+          "type": "integer"
+        },
+        "conditions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "alternatives"
+          ],
+          "properties": {
+            "alternatives": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "$ref": "#/$defs/requirement"
+                }
+              }
+            }
+          }
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "sourceUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://www\\.masterduelmeta\\.com/(combo/|combos-and-counters)"
+        },
+        "author": {
+          "type": "string"
+        },
+        "explanation": {
+          "type": "string"
+        },
+        "requiredCards": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "excludedCardIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "guideSteps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/$defs/guideStep"
+          }
+        }
+      }
+    },
+    "instruction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cardName",
+        "action",
+        "detail",
+        "connector"
+      ],
+      "properties": {
+        "cardId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cardName": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detail": {
+          "type": "string"
+        },
+        "connector": {
+          "type": "string"
+        }
+      }
+    },
+    "cue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "area",
+        "cards"
+      ],
+      "properties": {
+        "area": {
+          "enum": [
+            "hand",
+            "alliedField"
+          ]
+        },
+        "cards": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/requirement"
+          }
+        }
+      }
+    },
+    "branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "steps"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/$defs/guideStep"
+          }
+        }
+      }
+    },
+    "guideStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instructions",
+        "conditionLabel",
+        "branches"
+      ],
+      "properties": {
+        "instructions": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/instruction"
+          }
+        },
+        "conditionLabel": {
+          "type": "string"
+        },
+        "branches": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/branch"
+          }
+        },
+        "cue": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/cue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
