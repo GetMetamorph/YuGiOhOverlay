@@ -21,6 +21,43 @@ public sealed class SiftRecognitionTests
     private static byte[] Encode(Mat image) { Cv2.ImEncode(".png", image, out var bytes); return bytes; }
     private static RecognitionOptions Options => new() { Artwork = new(0, 0, 1, 1) };
     private static CapturedFrame Frame(Mat scene) => new(Encode(scene), DateTimeOffset.UtcNow, "synthetic-fixture");
+
+    [Fact]
+    public async Task SmallHalfCoveredArtworkNeedsUpscalingWithoutLoweringConfidence()
+    {
+        using var reference = Reference();
+        using var small = new Mat();
+        Cv2.Resize(reference, small, new Size(60, 60), interpolation: InterpolationFlags.Area);
+        using var scene = new Mat(260, 650, MatType.CV_8UC1, Scalar.Black);
+        using (var target = new Mat(scene, new Rect(120, 80, 60, 60))) small.CopyTo(target);
+        Cv2.Rectangle(scene, new Rect(150, 80, 31, 61), Scalar.All(35), -1);
+        var frame = Frame(scene);
+        using var nativeSize = new SiftHandRecognizer([("synthetic-a", Encode(reference))], Options with { MaximumAnalysisScale = 1 });
+        Assert.DoesNotContain(await nativeSize.RecognizeAsync(frame, default), d => d.Confidence >= Options.MinimumConfidence);
+
+        using var enhanced = new SiftHandRecognizer([("synthetic-a", Encode(reference))], Options);
+        var match = Assert.Single(await enhanced.RecognizeAsync(frame, default));
+        Assert.Equal("synthetic-a", match.CardId);
+        Assert.True(match.Confidence >= Options.MinimumConfidence);
+        Assert.InRange(match.Zone.X, .17, .20);
+        Assert.InRange(match.Zone.Y, .29, .33);
+        Assert.InRange(match.Zone.Width, .08, .11);
+    }
+
+    [Fact]
+    public async Task UpscalePixelBudgetPreservesNativeSizeWhenAlreadyFull()
+    {
+        using var reference = Reference();
+        using var scene = new Mat(400, 800, MatType.CV_8UC1, Scalar.Black);
+        using (var target = new Mat(scene, new Rect(20, 50, 300, 300))) reference.CopyTo(target);
+        using var recognizer = new SiftHandRecognizer([("synthetic-a", Encode(reference))],
+            Options with { UpscalePixelBudget = 320000 });
+        var match = Assert.Single(await recognizer.RecognizeAsync(Frame(scene), default));
+        Assert.InRange(match.Zone.X, .02, .03);
+        Assert.InRange(match.Zone.Width, .37, .38);
+        Assert.True(match.Confidence >= Options.MinimumConfidence);
+    }
+
     [Fact]
     public async Task ScaledRotatedArtIsIdentifiedWithCorrectLocation()
     {

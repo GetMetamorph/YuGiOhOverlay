@@ -85,7 +85,8 @@ public sealed class ObserveHand(
                 : !state.IsStable ? "Observation · stabilisation" : state.Hand.Count == 0 ? "Observation · aucune carte identifiée" : "Observation · main analysée";
             await presenter.PresentAsync(new(status, state, recommendations,
                 options.Diagnostics ? frame.Png : null, timer.Elapsed.TotalMilliseconds, capturedMs,
-                recognizedMs - capturedMs, timer.Elapsed.TotalMilliseconds - recognizedMs, resultRevision, area, guideStatus), cancellationToken);
+                recognizedMs - capturedMs, timer.Elapsed.TotalMilliseconds - recognizedMs, resultRevision, area, guideStatus,
+                options.Diagnostics ? detections : null), cancellationToken);
         }
     }
 }

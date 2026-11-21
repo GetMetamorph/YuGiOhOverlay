@@ -13,6 +13,36 @@ namespace YuGiOhOverlay.UI.Tests;
 public sealed class GuideSelectionTests
 {
     [Fact]
+    public Task DiagnosticRetainsRejectedCandidateAndFreezesWhenGameLosesFocus() => OnDispatcher(async dispatcher =>
+    {
+        var (model, _, action) = Create(dispatcher);
+        var id = action.Combo.Conditions.Alternatives[0][0].CardId;
+        var rejected = new CardDetection(id, .5, new(.1, .1, .5, .5));
+        var image = System.Windows.Media.Imaging.BitmapSource.Create(2, 2, 96, 96,
+            System.Windows.Media.PixelFormats.Gray8, null, new byte[] { 0, 50, 100, 255 }, 2);
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(image));
+        using var stream = new MemoryStream();
+        encoder.Save(stream);
+        await model.PresentAsync(new("Observation", new(DateTimeOffset.UtcNow, [], false), [],
+            DiagnosticPng: stream.ToArray(), DiagnosticDetections: [rejected]), default);
+        var preview = model.DiagnosticImage;
+        Assert.NotNull(preview);
+        Assert.Contains("Non retenue", Assert.Single(model.DiagnosticCards).Name);
+        Assert.Empty(model.Hand);
+        Assert.Empty(model.Recommendations);
+
+        await model.PresentAsync(new("Suspendu · remettre le jeu au premier plan", new(DateTimeOffset.UtcNow, [], false), []), default);
+        model.Suspend();
+        Assert.Same(preview, model.DiagnosticImage);
+        Assert.Contains("aperçu figé", model.DiagnosticStatus);
+        Assert.Empty(model.Recommendations);
+        model.ClearDiagnostic();
+        Assert.Null(model.DiagnosticImage);
+        Assert.Empty(model.DiagnosticCards);
+    });
+
+    [Fact]
     public Task DefaultProgressBindingReproducesReadOnlyPropertyCrash() => OnDispatcher(dispatcher =>
     {
         var model = new AssistantViewModel(dispatcher);

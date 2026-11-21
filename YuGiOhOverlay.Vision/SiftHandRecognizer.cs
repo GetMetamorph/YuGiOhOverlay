@@ -53,9 +53,16 @@ public sealed class SiftHandRecognizer : ITargetedGameStateRecognizer, IDisposab
     private IReadOnlyList<CardDetection> Recognize(CapturedFrame frame, IReadOnlySet<string>? cardIds, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var scene = Cv2.ImDecode(frame.Png, ImreadModes.Grayscale);
-        if (scene.Empty() || (long)scene.Width * scene.Height > _options.MaximumImagePixels)
+        using var source = Cv2.ImDecode(frame.Png, ImreadModes.Grayscale);
+        if (source.Empty() || (long)source.Width * source.Height > _options.MaximumImagePixels)
             throw new InvalidDataException("Zone de capture illisible ou trop grande.");
+        // Small, partially covered artwork loses SIFT keypoints at native screen size.
+        // Bound interpolation work; keep the geometric tolerance in source pixels.
+        var scale = Math.Max(1, Math.Min(_options.MaximumAnalysisScale,
+            Math.Sqrt(Math.Min(_options.UpscalePixelBudget, _options.MaximumImagePixels) / (double)(source.Width * source.Height))));
+        using var scene = new Mat();
+        Cv2.Resize(source, scene, new Size((int)(source.Width * scale), (int)(source.Height * scale)),
+            interpolation: InterpolationFlags.Cubic);
         using var descriptors = new Mat();
         _features.DetectAndCompute(scene, null, out var points, descriptors);
         if (descriptors.Empty()) return [];
@@ -77,7 +84,7 @@ public sealed class SiftHandRecognizer : ITargetedGameStateRecognizer, IDisposab
                 var observed = matches.Select(m => points[m.QueryIdx].Pt).ToArray();
                 using var mask = new Mat();
                 using var homography = Cv2.FindHomography(reference.Select(p => new Point2d(p.X, p.Y)),
-                    observed.Select(p => new Point2d(p.X, p.Y)), HomographyMethods.Ransac, _options.ReprojectionThreshold, mask);
+                    observed.Select(p => new Point2d(p.X, p.Y)), HomographyMethods.Ransac, _options.ReprojectionThreshold * scale, mask);
                 if (homography.Empty()) break;
                 var inliers = Cv2.CountNonZero(mask);
                 if (inliers < _options.MinimumMatches) break;

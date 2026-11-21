@@ -18,7 +18,6 @@ public sealed record TargetWindow(nint Handle, uint ProcessId, string Title)
     public override string ToString() => Title;
 }
 public sealed record ClientGeometry(int X, int Y, int Width, int Height, uint Dpi);
-public sealed record CaptureProfile(NormalizedRect Hand, double AspectRatio, uint Dpi);
 
 public static class WindowCatalog
 {

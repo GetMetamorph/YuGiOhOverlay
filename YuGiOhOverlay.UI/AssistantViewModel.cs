@@ -31,6 +31,9 @@ public sealed class AssistantViewModel(Dispatcher dispatcher, GuideSession? sess
     public IReadOnlyList<HandItem> Hand { get; private set; } = [];
     public IReadOnlyList<RecommendedAction> Recommendations { get; private set; } = [];
     public BitmapSource? DiagnosticImage { get; private set; }
+    public IReadOnlyList<HandItem> DiagnosticCards { get; private set; } = [];
+    public string DiagnosticStatus { get; private set; } = "";
+    private string _diagnosticDetails = "";
     public string Timing { get; private set; } = "";
     public RecommendedAction? Selected => _selected;
     public RecommendedAction? SelectedSuggestion
@@ -67,13 +70,13 @@ public sealed class AssistantViewModel(Dispatcher dispatcher, GuideSession? sess
     public void Reset()
     {
         Session.Exit(); Status = "Suspendu"; GuideStatus = ""; Timing = ""; _selected = null;
-        Hand = []; Recommendations = []; DiagnosticImage = null; Refresh();
+        Hand = []; Recommendations = []; ClearDiagnostic(); Refresh();
     }
     public void Suspend()
     {
         Session.RestartObservation();
         if (!IsFollowing) _selected = null;
-        Status = "Suspendu"; Timing = ""; Hand = []; Recommendations = []; DiagnosticImage = null;
+        Status = "Suspendu"; Timing = ""; Hand = []; Recommendations = []; FreezeDiagnostic();
         GuideStatus = IsFollowing ? "Combo conservé · relance l’observation pour reprendre" : "";
         Refresh();
     }
@@ -82,14 +85,14 @@ public sealed class AssistantViewModel(Dispatcher dispatcher, GuideSession? sess
         if (IsFollowing) { ExitCombo(); return; }
         if (Selected is null) return;
         Session.Follow(Selected.Combo);
-        Hand = []; Recommendations = []; DiagnosticImage = null;
+        Hand = []; Recommendations = []; ClearDiagnostic();
         Status = "Suivi du combo · recherche suspendue";
         GuideStatus = "Observation de l’étape en préparation";
         Refresh();
     }
     public void ExitCombo()
     {
-        Session.Exit(); _selected = null; Hand = []; Recommendations = []; DiagnosticImage = null;
+        Session.Exit(); _selected = null; Hand = []; Recommendations = []; ClearDiagnostic();
         Status = "Observation · nouvelle stabilisation de la main"; GuideStatus = ""; Refresh();
     }
     public void MoveStep(int delta)
@@ -112,9 +115,15 @@ public sealed class AssistantViewModel(Dispatcher dispatcher, GuideSession? sess
         Recommendations = IsFollowing ? [] : result.Recommendations;
         if (!IsFollowing)
             _selected = Recommendations.FirstOrDefault(r => r.Combo.Id == Selected?.Combo.Id) ?? Recommendations.FirstOrDefault();
-        DiagnosticImage = null;
         if (result.DiagnosticPng is { } bytes)
         {
+            var candidates = result.DiagnosticDetections ?? result.State.Hand;
+            var diagnostic = candidates.Where(d => d.Zone.IsValid && double.IsFinite(d.Confidence))
+                .Select(d => (Detection: d, Accepted: result.State.Hand.Contains(d))).ToArray();
+            DiagnosticCards = diagnostic.Select(d => new HandItem(
+                (d.Accepted ? "Identifiée · " : "Non retenue · correspondance possible : ")
+                    + (_catalog?.Cards.FirstOrDefault(c => c.Id == d.Detection.CardId)?.Name ?? "Unknown"),
+                $"{d.Detection.Confidence:P0}", d.Detection.Zone)).ToArray();
             using var stream = new MemoryStream(bytes);
             var image = new BitmapImage();
             image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad; image.StreamSource = stream; image.EndInit(); image.Freeze();
@@ -122,11 +131,12 @@ public sealed class AssistantViewModel(Dispatcher dispatcher, GuideSession? sess
             using (var context = drawing.RenderOpen())
             {
                 context.DrawImage(image, new Rect(0, 0, image.PixelWidth, image.PixelHeight));
-                foreach (var item in observedCards)
+                for (var index = 0; index < DiagnosticCards.Count; index++)
                 {
+                    var item = DiagnosticCards[index];
                     var box = new Rect(item.Zone.X * image.PixelWidth, item.Zone.Y * image.PixelHeight,
                         item.Zone.Width * image.PixelWidth, item.Zone.Height * image.PixelHeight);
-                    context.DrawRectangle(null, new Pen(Brushes.Aquamarine, 2), box);
+                    context.DrawRectangle(null, new Pen(diagnostic[index].Accepted ? Brushes.Aquamarine : Brushes.Orange, 2), box);
                     var label = new FormattedText(item.Name + " " + item.Confidence, CultureInfo.CurrentUICulture,
                         FlowDirection.LeftToRight, new Typeface("Segoe UI"), 12, Brushes.White, 1);
                     var origin = new Point(box.Left, Math.Max(0, box.Top - label.Height));
@@ -137,11 +147,29 @@ public sealed class AssistantViewModel(Dispatcher dispatcher, GuideSession? sess
             var preview = new RenderTargetBitmap(image.PixelWidth, image.PixelHeight, 96, 96, PixelFormats.Pbgra32);
             preview.Render(drawing); preview.Freeze();
             DiagnosticImage = preview;
+            var area = result.Area == ObservationArea.AlliedField ? "Terrain allié" : "Main";
+            _diagnosticDetails = $"{area} · {image.PixelWidth} × {image.PixelHeight} px · {result.State.ObservedAt.ToLocalTime():HH:mm:ss} · "
+                + $"{observedCards.Length} retenue(s) / {candidates.Count} correspondance(s) visuelle(s). "
+                + "Orange : score insuffisant ou identité ambiguë. Recherche limitée aux illustrations du catalogue.";
+            DiagnosticStatus = _diagnosticDetails;
         }
+        else FreezeDiagnostic();
         Timing = $"{result.ElapsedMilliseconds:F0} ms · capture {result.CaptureMilliseconds:F0} / vision {result.RecognitionMilliseconds:F0} / décision {result.DecisionMilliseconds:F0} ms\n"
             + (IsFollowing ? "Suivi de l’étape uniquement · recherche de starters arrêtée" : $"{Hand.Count} carte(s) identifiée(s) · {Recommendations.Count} combo(s) compatible(s)");
         Refresh();
     }, DispatcherPriority.Background, cancellationToken).Task;
+
+    public void ClearDiagnostic()
+    {
+        DiagnosticImage = null; DiagnosticCards = []; DiagnosticStatus = ""; _diagnosticDetails = "";
+        Refresh();
+    }
+
+    private void FreezeDiagnostic()
+    {
+        if (DiagnosticImage is not null)
+            DiagnosticStatus = "DERNIÈRE CAPTURE · aperçu figé, aucune détection en cours. " + _diagnosticDetails;
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Refresh() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
