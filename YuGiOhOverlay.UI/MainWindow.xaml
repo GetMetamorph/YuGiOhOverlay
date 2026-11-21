@@ -13,13 +13,14 @@
                 <Border Style="{StaticResource Panel}">
                     <StackPanel>
                         <TextBlock Text="01   Choisir les combos" FontSize="17" FontWeight="SemiBold" />
-                        <TextBlock Text="Lien Combos &amp; Counters de Master Duel Meta" Style="{StaticResource Caption}" Margin="0,10,0,5" />
-                        <TextBox x:Name="SourceUrl" AutomationProperties.Name="Lien du deck Master Duel Meta" />
+                        <TextBlock Text="Lien Master Duel Meta : combo individuel ou liste Combos avec un deck sélectionné." Style="{StaticResource Caption}" Margin="0,10,0,5" />
+                        <TextBox x:Name="SourceUrl" AutomationProperties.Name="Lien du combo ou du deck Master Duel Meta" />
                         <WrapPanel Margin="0,12,0,0">
-                            <Button Content="Synchroniser le deck" Style="{StaticResource Primary}" Click="Sync_Click" />
+                            <Button Content="Importer depuis Master Duel Meta" Style="{StaticResource Primary}" Click="Sync_Click" />
                             <Button Content="Importer un catalogue JSON" Click="Import_Click" />
                             <Button Content="Mes anciennes fiches" Click="Legacy_Click" />
                         </WrapPanel>
+                        <TextBlock x:Name="ImportStatus" Style="{StaticResource Caption}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" />
                         <TextBlock x:Name="CatalogStatus" Style="{StaticResource Caption}" Margin="0,12,0,0" Text="Aucun catalogue chargé." />
                         <Expander x:Name="WarningsExpander" Header="Détails de l’import" Foreground="#D0DFED" Margin="0,8,0,0">
                             <TextBox x:Name="ImportWarnings" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="140" VerticalScrollBarVisibility="Auto" />

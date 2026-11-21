@@ -1,4 +1,6 @@
+using System.Net;
 using System.Text.Json;
+using YuGiOhOverlay.Application;
 using YuGiOhOverlay.Domain;
 using YuGiOhOverlay.Infrastructure;
 
@@ -7,6 +9,9 @@ namespace YuGiOhOverlay.Domain.Tests;
 public sealed class ImportTests
 {
     private const string Deck = "61ebdf8e0a39c54503c45337";
+    private const string Combo = "cccccccccccccccccccccccc";
+    private const string ListUrl = "https://www.masterduelmeta.com/combos-and-counters?combosDeckType=" + Deck + "#combos";
+    private const string ComboUrl = "https://www.masterduelmeta.com/combo/" + Combo;
     private const string CardA = "aaaaaaaaaaaaaaaaaaaaaaaa";
     private const string CardB = "bbbbbbbbbbbbbbbbbbbbbbbb";
     private static JsonElement Entry(string id, string connector = "") => JsonSerializer.SerializeToElement(new
@@ -16,7 +21,7 @@ public sealed class ImportTests
     });
     private static JsonElement Row(JsonElement[] starters, object? steps = null) => JsonSerializer.SerializeToElement(new
     {
-        _id = "cccccccccccccccccccccccc",
+        _id = Combo,
         title = "Synthetic fixture",
         deckType = new { _id = Deck, name = "Demo" },
         startingCards = starters,
@@ -84,10 +89,81 @@ public sealed class ImportTests
     [InlineData("https://evil.example/combos-and-counters?combosDeckType=61ebdf8e0a39c54503c45337")]
     [InlineData("https://www.masterduelmeta.com/combos-and-counters?combosDeckType=../../file")]
     [InlineData("https://www.masterduelmeta.com/combos-and-counters")]
-    public void InvalidSourceRejected(string url) => Assert.Throws<ArgumentException>(() => MasterDuelMetaClient.ParseDeckId(url));
+    [InlineData("https://www.masterduelmeta.com/combo/invalid")]
+    [InlineData("https://www.masterduelmeta.com/combo/cccccccccccccccccccccccc/other")]
+    public async Task InvalidSourceRejectedBeforeNetworkAccess(string url)
+    {
+        using var http = new HttpClient(new ResponseHandler(_ => throw new InvalidOperationException("Unexpected HTTP request")));
+        await Assert.ThrowsAsync<ArgumentException>(() => CreateClient(http).ImportAsync(url, default));
+    }
+
     [Fact]
-    public void UserLinkAccepted() => Assert.Equal(Deck, MasterDuelMetaClient.ParseDeckId(
-        "https://www.masterduelmeta.com/combos-and-counters?combosDeckType=" + Deck + "#combos"));
+    public async Task DeckLinkImportsItsPaginatedList()
+    {
+        using var http = new HttpClient(new ResponseHandler(uri =>
+        {
+            Assert.Equal("/api/v1/combos/paginated", uri.AbsolutePath);
+            Assert.Contains($"deckType={Deck}", uri.Query);
+            return JsonResponse(JsonSerializer.Serialize(new { data = new[] { Row([Entry(CardA)]) }, total = 1 }));
+        }));
+        var catalog = await CreateClient(http).ImportAsync(ListUrl, default);
+        Assert.Equal(Deck, catalog.DeckId);
+        Assert.Equal(Combo, Assert.Single(catalog.Rules).Id);
+    }
+
+    [Fact]
+    public async Task SharedComboLinkImportsOneComboAndCanBeSavedInSettings()
+    {
+        using var http = new HttpClient(new ResponseHandler(uri =>
+        {
+            Assert.Equal($"/api/v1/combos?_id={Combo}&limit=1", uri.PathAndQuery);
+            return JsonResponse(Row([Entry(CardA)]).GetRawText());
+        }));
+        var url = ComboUrl + "?combosDeckType=" + Deck;
+        var catalog = await CreateClient(http).ImportAsync(url, default);
+        Assert.Equal(Deck, catalog.DeckId);
+        var rule = Assert.Single(catalog.Rules);
+        Assert.Equal(Combo, rule.Id);
+        Assert.Equal(ComboUrl, rule.SourceUrl);
+        var path = Path.Combine(Path.GetTempPath(), "ygo-settings-" + Guid.NewGuid().ToString("N") + ".json");
+        var store = new AssistantSettingsStore(path);
+        try
+        {
+            await store.SaveAsync(AssistantSettings.Default with { SourceUrl = url }, default);
+            Assert.Equal(url, (await store.LoadAsync(default)).SourceUrl);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Theory]
+    [InlineData("null", "ne trouve pas")]
+    [InlineData("[]", "ne trouve pas")]
+    [InlineData("{\"_id\":\"dddddddddddddddddddddddd\"}", "inattendu")]
+    [InlineData("<html>", "illisible")]
+    public async Task InvalidComboResponsesHaveAnImportError(string content, string message)
+    {
+        using var http = new HttpClient(new ResponseHandler(_ => JsonResponse(content)));
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => CreateClient(http).ImportAsync(ComboUrl, default));
+        Assert.Contains(message, error.Message);
+    }
+
+    [Fact]
+    public async Task UnsupportedStarterExplainsWhyTheComboWasSkipped()
+    {
+        var row = Row([Entry(CardA, "plus"), JsonSerializer.SerializeToElement(new { generic = "Any card" })]);
+        using var http = new HttpClient(new ResponseHandler(_ => JsonResponse(row.GetRawText())));
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => CreateClient(http).ImportAsync(ComboUrl, default));
+        Assert.Contains("prérequis générique ou groupé", error.Message);
+    }
+
+    private static MasterDuelMetaClient CreateClient(HttpClient http) => new(http, new(), new Clock());
+    private static HttpResponseMessage JsonResponse(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body) };
+    private sealed class Clock : IClock { public DateTimeOffset UtcNow => RecommendationTests.Now; }
+    private sealed class ResponseHandler(Func<Uri, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(respond(request.RequestUri!));
+    }
     [Fact]
     public void LegacyVersionDoesNotSilentlyProduceRecommendations() => Assert.Throws<InvalidDataException>(() =>
         CatalogValidator.Validate(RecommendationTests.Catalog(RecommendationTests.Rule()) with { Version = 1 }));

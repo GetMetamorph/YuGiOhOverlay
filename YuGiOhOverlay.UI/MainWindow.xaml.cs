@@ -59,16 +59,27 @@ public partial class MainWindow : Window
     {
         await StopAsync();
         var url = SourceUrl.Text.Trim();
-        Message.Text = "Chargement des combos Master Duel Meta…";
-        var catalog = await _services.MasterDuelMeta.ImportAsync(url, _lifetime.Token);
-        if (catalog.Rules.Count == 0) throw new InvalidDataException("Aucun combo compatible avec l’import. Le catalogue précédent est conservé.");
-        await _services.MasterDuelMeta.CacheImagesAsync(catalog, _services.ImagesFolder,
-            new Progress<string>(text => Message.Text = text), _lifetime.Token);
-        await _services.Repository.SaveAsync(catalog, _lifetime.Token);
-        _settings = _settings with { SourceUrl = url };
-        await _services.SaveSettingsAsync(_settings, _lifetime.Token);
+        ImportStatus.Text = "Chargement des combos Master Duel Meta…";
+        ComboCatalog catalog;
+        try
+        {
+            catalog = await _services.MasterDuelMeta.ImportAsync(url, _lifetime.Token);
+            ImportStatus.Text = "Téléchargement des illustrations…";
+            await _services.MasterDuelMeta.CacheImagesAsync(catalog, _services.ImagesFolder,
+                new Progress<string>(text => ImportStatus.Text = text), _lifetime.Token);
+            var settings = _settings with { SourceUrl = url };
+            await _services.SaveSettingsAsync(settings, _lifetime.Token);
+            _settings = settings;
+            await _services.Repository.SaveAsync(catalog, _lifetime.Token);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !_lifetime.IsCancellationRequested)
+        {
+            ImportStatus.Text = "Import interrompu. " + ex.Message + " Le catalogue précédent est conservé.";
+            return;
+        }
         SetCatalog(catalog);
-        Message.Text = "Deck prêt. Les illustrations sont disponibles hors ligne.";
+        ImportStatus.Text = catalog.Rules.Count == 1 ? "1 combo importé." : $"{catalog.Rules.Count} combos importés.";
+        WarningsExpander.IsExpanded = catalog.ImportWarnings.Count > 0;
     });
 
     private async void Import_Click(object sender, RoutedEventArgs e) => await RunUiAsync(async () =>

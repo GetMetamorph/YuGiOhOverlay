@@ -24,7 +24,7 @@ public sealed record AssistantSettings(string SourceUrl, CaptureProfile? Capture
         Recognition.Validate();
         Capture?.Validate();
         FieldCapture?.Validate();
-        MasterDuelMetaClient.ParseDeckId(SourceUrl);
+        MasterDuelMetaClient.ValidateImportUrl(SourceUrl);
     }
 }
 

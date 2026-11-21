@@ -6,39 +6,72 @@ namespace YuGiOhOverlay.Infrastructure;
 
 public sealed class MasterDuelMetaClient(HttpClient http, MasterDuelMetaParser parser, IClock clock)
 {
-    public static string ParseDeckId(string url)
+    internal static void ValidateImportUrl(string url) => ParseImportUrl(url);
+
+    private static (string Id, bool IsSingleCombo) ParseImportUrl(string url)
     {
-        if (!CatalogValidator.IsSourceUrl(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            || uri.AbsolutePath.TrimEnd('/') != "/combos-and-counters")
-            throw new ArgumentException("Colle le lien Combos & Counters de Master Duel Meta avec un deck sélectionné.");
+        if (!CatalogValidator.IsSourceUrl(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            throw new ArgumentException("Colle un lien Master Duel Meta vers un combo ou vers Combos & Counters avec un deck sélectionné.");
+
+        const string comboPrefix = "/combo/";
+        if (uri.AbsolutePath.StartsWith(comboPrefix, StringComparison.Ordinal))
+        {
+            var comboId = uri.AbsolutePath[comboPrefix.Length..].TrimEnd('/');
+            if (!MasterDuelMetaParser.IsObjectId(comboId))
+                throw new ArgumentException("Lien du combo invalide. Copie l’adresse complète depuis « View Full Combo ».");
+            return (comboId, true);
+        }
+
         var ids = uri.Query.TrimStart('?').Split('&').Select(p => p.Split('=', 2))
             .Where(p => p.Length == 2 && p[0] == "combosDeckType").Select(p => Uri.UnescapeDataString(p[1])).ToArray();
+        if (ids.Length == 0)
+            throw new ArgumentException("Dans Combos & Counters, ouvre l’onglet Combos, sélectionne ton deck, puis recopie l’adresse.");
         if (ids.Length != 1 || !MasterDuelMetaParser.IsObjectId(ids[0]))
-            throw new ArgumentException("Le lien doit contenir un unique combosDeckType valide.");
-        return ids[0];
+            throw new ArgumentException("Le deck sélectionné dans ce lien est invalide. Sélectionne-le de nouveau sur Master Duel Meta.");
+        return (ids[0], false);
     }
 
     public async Task<ComboCatalog> ImportAsync(string url, CancellationToken cancellationToken)
     {
-        var deckId = ParseDeckId(url);
+        var (id, isSingleCombo) = ParseImportUrl(url);
+        var catalog = isSingleCombo ? await ImportComboAsync(id, cancellationToken) : await ImportDeckAsync(id, cancellationToken);
+        if (catalog.Rules.Count > 0) return catalog;
+        if (catalog.ImportWarnings.Count == 0)
+            throw new InvalidDataException("Master Duel Meta ne contient aucun combo pour ce deck.");
+        throw new InvalidDataException($"Aucun des {catalog.ImportWarnings.Count} combos ne peut être utilisé pour la détection automatique. Exemple : {catalog.ImportWarnings[0]}.");
+    }
+
+    private async Task<ComboCatalog> ImportComboAsync(string comboId, CancellationToken cancellationToken)
+    {
+        // Endpoint used by Master Duel Meta's /combo/{id} page.
+        using var document = await LoadCombosAsync($"combos?_id={comboId}&limit=1", cancellationToken);
+        var row = document.RootElement;
+        if (row.ValueKind == JsonValueKind.Null || row.ValueKind == JsonValueKind.Array && row.GetArrayLength() == 0)
+            throw new InvalidDataException("Master Duel Meta ne trouve pas ce combo.");
+        if (ReadString(row, "_id") != comboId
+            || !row.TryGetProperty("deckType", out var deck) || ReadString(deck, "_id") is not { } deckId
+            || !MasterDuelMetaParser.IsObjectId(deckId))
+            throw new InvalidDataException("Master Duel Meta a renvoyé un combo ou un deck inattendu.");
+        return parser.Parse([row], deckId, clock.UtcNow);
+    }
+
+    private async Task<ComboCatalog> ImportDeckAsync(string deckId, CancellationToken cancellationToken)
+    {
         var rows = new List<JsonElement>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         const int pageSize = 20;
         for (var page = 1; page <= 25; page++)
         {
-            var bytes = await DownloadBoundedAsync(
-                $"https://www.masterduelmeta.com/api/v1/combos/paginated?deckType={deckId}&sort=netVotes&limit={pageSize}&page={page}",
-                8 * 1024 * 1024, cancellationToken);
-            using var document = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 48 });
+            using var document = await LoadCombosAsync(
+                $"combos/paginated?deckType={deckId}&sort=netVotes&limit={pageSize}&page={page}", cancellationToken);
             var root = document.RootElement;
-            var data = root.GetProperty("data");
-            var total = root.GetProperty("total").GetInt32();
-            if (total is < 0 or > 500 || data.ValueKind != JsonValueKind.Array)
+            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("data", out var data)
+                || data.ValueKind != JsonValueKind.Array || !root.TryGetProperty("total", out var count)
+                || count.ValueKind != JsonValueKind.Number || !count.TryGetInt32(out var total) || total is < 0 or > 500)
                 throw new InvalidDataException("Réponse Master Duel Meta trop volumineuse ou inattendue.");
             foreach (var row in data.EnumerateArray())
             {
-                var id = row.GetProperty("_id").GetString()!;
-                if (!MasterDuelMetaParser.IsObjectId(id) || !seen.Add(id))
+                if (ReadString(row, "_id") is not { } id || !MasterDuelMetaParser.IsObjectId(id) || !seen.Add(id))
                     throw new InvalidDataException("Pagination Master Duel Meta incohérente. Réessayer la synchronisation.");
                 rows.Add(row.Clone());
             }
@@ -47,6 +80,34 @@ public sealed class MasterDuelMetaClient(HttpClient http, MasterDuelMetaParser p
         }
         throw new InvalidDataException("Limite de pagination atteinte.");
     }
+
+    private async Task<JsonDocument> LoadCombosAsync(string resource, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var bytes = await DownloadBoundedAsync($"https://www.masterduelmeta.com/api/v1/{resource}", 8 * 1024 * 1024, cancellationToken);
+            return JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 48 });
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode is { } status)
+        {
+            throw new InvalidDataException($"Master Duel Meta n’a pas fourni les combos (HTTP {(int)status}).", ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidDataException("Impossible de joindre Master Duel Meta pour récupérer les combos.", ex);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new InvalidDataException("Master Duel Meta a mis trop de temps à envoyer les combos.", ex);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("Master Duel Meta a renvoyé une réponse illisible pour les combos.", ex);
+        }
+    }
+
+    private static string? ReadString(JsonElement element, string key) => element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
     public async Task CacheImagesAsync(ComboCatalog catalog, string folder, IProgress<string>? progress, CancellationToken cancellationToken)
     {
