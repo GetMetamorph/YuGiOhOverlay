@@ -14,7 +14,7 @@ dotnet run --project YuGiOhOverlay.UI
 Dans l'application :
 
 1. Essayer **la démo** pour découvrir l'interface sans capture, réseau ou jeu.
-2. Coller le lien **Combos & Counters** avec le deck sélectionné. Le lien Blue-Eyes est prérempli. **Synchroniser** importe les combos et met leurs illustrations en cache local.
+2. Coller le lien **Combos & Counters** (onglet **Combos**, deck sélectionné), ou l’adresse d’un combo ouvert avec **View Full Combo**. Le lien Blue-Eyes est prérempli. **Importer depuis Master Duel Meta** charge la liste ou le combo demandé, met les illustrations en cache et affiche le résultat à côté du lien. Un import réussi remplace le catalogue actif.
 3. Sélectionner la fenêtre **Master Duel**. En mode fenêtré ou sans bordure, afficher une main puis **Calibrer** en traçant un rectangle contenant toutes ses illustrations visibles. La configuration se masque pendant le tracé. La zone déjà enregistrée apparaît en vert et l'autre zone en orange : les deux zones ne doivent pas se chevaucher. Une sélection refusée reste ouverte avec une explication ; elle n'efface aucun réglage. Échap annule. Aucune capture n'est enregistrée pendant cette sélection.
 4. **Lancer l'observation**, puis remettre le jeu au premier plan. Le programme attend plusieurs observations cohérentes avant de suggérer un combo. Une fenêtre masquée, minimisée ou inactive suspend l'observation.
 5. Choisir une suggestion, lire les prérequis et **Suivre ce combo**. La liste des cartes de départ disparaît et la recherche de nouveaux combos s’arrête réellement. **Quitter le combo** reprend la recherche après une nouvelle stabilisation ; Suspendre conserve le guide et son étape.
@@ -46,6 +46,8 @@ Déplacer l'overlay par son en-tête en mode interactif. Il reste au-dessus des 
 ## Source Master Duel Meta
 
 L'adaptateur utilise la réponse publique effectivement observée sur le site le 9 novembre 2026, avec pagination bornée : `GET /api/v1/combos/paginated?deckType=...&sort=netVotes&limit=20&page=...`. Ce n'est pas une API publique documentée avec garantie de stabilité. Un changement de format ou une erreur réseau est signalé et conserve le catalogue précédent.
+
+Pour un lien individuel `/combo/<id>`, l'adaptateur utilise `GET /api/v1/combos?_id=<id>&limit=1`, comme la page du site. Le combo doit avoir des prérequis pris en charge pour être proposé automatiquement.
 
 Les liens de chaque combo, auteurs, notes, prérequis et étapes sont conservés. Les contenus restent dans leur langue d'origine. Les illustrations, y compris les versions alternatives trouvées pour ces cartes, sont téléchargées à la synchronisation depuis le CDN utilisé par le site, puis réutilisées hors ligne. Les variantes partagent l’identité de la carte dans le moteur. Elles ne sont pas redistribuées dans ce dépôt.
 
