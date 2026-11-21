@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private bool _busy;
     private bool _closing;
     private bool _canClose;
+    private bool _initialized;
 
     public MainWindow(CompositionRoot services)
     {
@@ -31,6 +32,8 @@ public partial class MainWindow : Window
         _overlay = new(_viewModel, ShowSettings, () => _observationCancellation?.Cancel());
         Loaded += async (_, _) => await RunUiAsync(async () =>
         {
+            if (_initialized) return;
+            _initialized = true;
             _settings = await _services.LoadSettingsAsync(_lifetime.Token);
             SourceUrl.Text = _settings.SourceUrl;
             DiagnosticsCheck.IsChecked = _settings.Recognition.Diagnostics;
@@ -100,21 +103,27 @@ public partial class MainWindow : Window
         var target = TargetCombo.SelectedItem as TargetWindow ?? throw new InvalidOperationException("Choisis d’abord la fenêtre du jeu.");
         var geometry = WindowCatalog.Geometry(target);
         _overlay.Hide();
-        var calibration = new CalibrationWindow(geometry, field);
-        if (calibration.ShowDialog() != true || calibration.Selection is not { } selection) return;
-        if (WindowCatalog.Geometry(target) != geometry) throw new InvalidOperationException("La fenêtre a bougé. Recommencer la calibration.");
-        if (field && _settings.Capture is { } hand && hand.Hand.Overlap(selection) > 0)
-            throw new InvalidOperationException("Le terrain allié ne doit pas inclure la zone de main.");
-        var profile = new CaptureProfile(selection, geometry.Width / (double)geometry.Height, geometry.Dpi);
-        _settings = field ? _settings with { FieldCapture = profile } : _settings with
+        var calibration = new CalibrationWindow(geometry, field,
+            (field ? _settings.FieldCapture : _settings.Capture)?.Hand,
+            (field ? _settings.Capture : _settings.FieldCapture)?.Hand);
+        bool? accepted;
+        Hide();
+        try { accepted = calibration.ShowDialog(); }
+        finally { if (!_closing) { Show(); Activate(); } }
+        if (accepted != true || calibration.Selection is not { } selection)
         {
-            Capture = profile,
-            FieldCapture = _settings.FieldCapture is { } previous && previous.Hand.Overlap(selection) > 0 ? null : _settings.FieldCapture
-        };
-        await _services.SaveSettingsAsync(_settings, _lifetime.Token);
+            CalibrationMessage.Text = "Sélection annulée · zones enregistrées conservées.";
+            return;
+        }
+        if (WindowCatalog.Geometry(target) != geometry) throw new InvalidOperationException("La fenêtre a bougé. Recommencer la calibration.");
+        var profile = new CaptureProfile(selection, geometry.Width / (double)geometry.Height, geometry.Dpi);
+        var updated = _settings.WithCalibration(profile, field);
+        await _services.SaveSettingsAsync(updated, _lifetime.Token);
+        _settings = updated;
         CalibrationStatus.Text = _settings.Capture is null ? "Calibration requise" : "Main mémorisée";
         FieldCalibrationStatus.Text = _settings.FieldCapture is null ? "Terrain non calibré" : "Terrain allié mémorisé";
-        Message.Text = field ? "Terrain allié enregistré pour les étapes d’invocation." : "Main enregistrée pour la détection et les cartes ajoutées.";
+        CalibrationMessage.Text = field ? "Terrain allié enregistré · la zone de main est conservée." : "Main enregistrée · la zone de terrain est conservée.";
+        Message.Text = CalibrationMessage.Text;
     });
 
     private async void Start_Click(object sender, RoutedEventArgs e) => await RunUiAsync(async () =>
@@ -127,6 +136,7 @@ public partial class MainWindow : Window
         _settings = _settings with { Recognition = _settings.Recognition with { Diagnostics = DiagnosticsCheck.IsChecked == true } };
         await _services.SaveSettingsAsync(_settings, _lifetime.Token);
         _viewModel.Suspend();
+        _viewModel.ClearDiagnostic();
         _overlay.Show();
         _overlay.SetPassive(true);
         _observationCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);

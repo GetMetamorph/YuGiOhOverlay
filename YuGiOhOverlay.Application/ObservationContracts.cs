@@ -25,7 +25,8 @@ public sealed record ObservationResult(
     string Status, BoardState State, IReadOnlyList<RecommendedAction> Recommendations,
     byte[]? DiagnosticPng = null, double ElapsedMilliseconds = 0,
     double CaptureMilliseconds = 0, double RecognitionMilliseconds = 0, double DecisionMilliseconds = 0,
-    long? SessionRevision = null, ObservationArea Area = ObservationArea.Hand, string GuideStatus = "");
+    long? SessionRevision = null, ObservationArea Area = ObservationArea.Hand, string GuideStatus = "",
+    IReadOnlyList<CardDetection>? DiagnosticDetections = null);
 
 public sealed record RecognitionOptions
 {
@@ -44,6 +45,8 @@ public sealed record RecognitionOptions
     public double StableZoneOverlap { get; init; } = 0.5;
     public int MaximumCopies { get; init; } = 3;
     public int MaximumImagePixels { get; init; } = 8000000;
+    public double MaximumAnalysisScale { get; init; } = 2;
+    public int UpscalePixelBudget { get; init; } = 2000000;
     public NormalizedRect Artwork { get; init; } = new(0.12, 0.18, 0.76, 0.52);
     public bool Diagnostics { get; init; }
 
@@ -57,7 +60,9 @@ public sealed record RecognitionOptions
             || !Unit(DuplicateOverlap) || !Unit(StableZoneOverlap) || Features is < 100 or > 10000
             || MinimumMatches is < 4 or > 200 || !double.IsFinite(ReprojectionThreshold)
             || ReprojectionThreshold is < 0.5 or > 10 || MaximumCopies is < 1 or > 3
-            || MaximumImagePixels is < 10000 or > 16000000 || !Artwork.IsValid)
+            || MaximumImagePixels is < 10000 or > 16000000 || !Artwork.IsValid
+            || !double.IsFinite(MaximumAnalysisScale) || MaximumAnalysisScale is < 1 or > 3
+            || UpscalePixelBudget is < 10000 or > 16000000)
             throw new ArgumentException("Configuration de reconnaissance invalide.");
     }
 }

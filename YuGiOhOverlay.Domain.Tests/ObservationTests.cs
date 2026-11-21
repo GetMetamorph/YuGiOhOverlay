@@ -5,6 +5,31 @@ namespace YuGiOhOverlay.Domain.Tests;
 
 public sealed class ObservationTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DiagnosticCandidatesNeverBypassConfidenceThreshold(bool diagnostics)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var clock = new TestClock();
+        var presenter = new TestPresenter(cancellation);
+        var options = new RecognitionOptions { IntervalMilliseconds = 250, Diagnostics = diagnostics };
+        var useCase = new ObserveHand(new TestCapture(clock), new LowConfidenceRecognizer(),
+            new RecommendationEngine(.72, TimeSpan.FromSeconds(3)), presenter, clock, options);
+        await useCase.RunAsync(RecommendationTests.Catalog(RecommendationTests.Rule()), cancellation.Token).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.All(presenter.Results, r => Assert.Empty(r.Recommendations));
+        var first = presenter.Results.First();
+        Assert.Empty(first.State.Hand);
+        if (diagnostics) Assert.Equal(.5, Assert.Single(first.DiagnosticDetections!).Confidence);
+        else { Assert.Null(first.DiagnosticDetections); Assert.Null(first.DiagnosticPng); }
+    }
+
+    private sealed class LowConfidenceRecognizer : IGameStateRecognizer
+    {
+        public Task<IReadOnlyList<CardDetection>> RecognizeAsync(CapturedFrame frame, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<CardDetection>>([RecommendationTests.Detection() with { Confidence = .5 }]);
+    }
+
     [Fact]
     public async Task SimulatedPipelineStabilizesThenClearsOnCaptureFailureAndStops()
     {

@@ -44,6 +44,7 @@
                             <TextBlock x:Name="FieldCalibrationStatus" Text="Terrain non calibré" VerticalAlignment="Center" Style="{StaticResource Caption}" />
                         </WrapPanel>
                         <TextBlock Text="Facultatif : cadre uniquement ton terrain, hors main et terrain adverse, pour suivre les invocations. Les autres étapes restent validables à la main." Style="{StaticResource Caption}" />
+                        <TextBlock x:Name="CalibrationMessage" TextWrapping="Wrap" Foreground="{StaticResource Accent}" Margin="0,8,0,0" />
                         <CheckBox x:Name="DiagnosticsCheck" Content="Afficher le diagnostic en mémoire (aucune capture enregistrée)" />
                     </StackPanel>
                 </Border>
@@ -69,7 +70,8 @@
             <Border Background="#111A28" CornerRadius="8" Margin="0,12,0,0" Padding="8">
                 <StackPanel>
                     <Image x:Name="DiagnosticPreview" Source="{Binding DiagnosticImage}" Stretch="Uniform" MaxHeight="240" />
-                    <ItemsControl ItemsSource="{Binding Hand}">
+                    <TextBlock Text="{Binding DiagnosticStatus}" Style="{StaticResource Caption}" Margin="0,8,0,4" />
+                    <ItemsControl ItemsSource="{Binding DiagnosticCards}">
                         <ItemsControl.ItemTemplate><DataTemplate>
                             <TextBlock Foreground="#D0DFED"><Run Text="{Binding Name}" /><Run Text=" · " /><Run Text="{Binding Confidence}" /></TextBlock>
                         </DataTemplate></ItemsControl.ItemTemplate>
